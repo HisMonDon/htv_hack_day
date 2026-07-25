@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import type { Ability, Damageable, LanePhase, LaneType, PlayerEntity } from "./types";
+import type { Ability, Enemy, LanePhase, LaneType, PlayerEntity } from "./types";
 import {
   ARENA_HEIGHT,
   ARENA_WIDTH,
@@ -11,43 +11,43 @@ import {
   clampToArena,
 } from "./arena";
 import { createPlayerEntity } from "./playerEntity";
-import { createDummyTarget } from "./dummyTarget";
-import { resolveAbilityHit } from "./combat";
+import { useEnemies } from "./useEnemies";
 import { usePlayerMovement } from "./usePlayerMovement";
 
-const DUMMY_RESPAWN_MS = 3000;
 const ABILITY_KEYS: Record<string, 0 | 1> = { j: 0, k: 1 };
+const BOT_MOVE_SPEED_PX = 80;
+const BOT_RETREAT_DISTANCE_PX = 80;
+const BOT_APPROACH_DISTANCE_PX = 180;
+const BOT_EDGE_BIAS_PX = 40;
+const BOT_REGEN_PER_SECOND = 3;
+const DEMO_MIN_COOLDOWN_SECONDS = 0.6;
+const DEMO_MAX_COOLDOWN_SECONDS = 1.8;
+
+function demoCooldownSeconds(value: number): number {
+  return Math.max(DEMO_MIN_COOLDOWN_SECONDS, Math.min(DEMO_MAX_COOLDOWN_SECONDS, value));
+}
 
 export interface UsePlayerCombatOptions {
   laneType: LaneType;
   phase: LanePhase;
+  waveNumber: number;
   equippedAbilities: [Ability, Ability];
   canvasRef: RefObject<HTMLCanvasElement>;
 }
 
 export interface UsePlayerCombatResult {
-  // Live mutable entity — reading .x/.y/.hp off it always reflects the
-  // current frame's values, even between the hp-triggered re-renders below.
-  // This is what LaneState.player exposes for botController/zombies later.
   player: PlayerEntity;
   health: number;
   maxHealth: number;
   isAlive: boolean;
-  // Live mutable array (same identity every render, elements updated in
-  // place) — mirrors LaneState.abilityCooldownRemainingSeconds so
-  // botController.decideBotAbilityUse reads real per-slot cooldowns once
-  // wired in, not a stale snapshot.
   cooldownsRemaining: [number, number];
+  enemies: Enemy[];
 }
 
-// Task 4 — owns one lane's player entity: position, hp, movement (human
-// lane only), J/K ability activation (human lane only), cooldowns, and
-// combat resolution against a temporary dummy target. Runs its own
-// requestAnimationFrame loop and draws directly to canvasRef — independent
-// per lane, matching useLaneGeneration's one-instance-per-LaneView pattern
-// (the shared clock, useMatchClock, is the one thing NOT per-lane — see LobbyView).
+// Owns one lane's player, ability cooldowns, enemy combat, and canvas render
+// loop. Match timing and ability generation remain outside this hook.
 export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatResult {
-  const { laneType, phase, equippedAbilities, canvasRef } = opts;
+  const { laneType, phase, waveNumber, equippedAbilities, canvasRef } = opts;
 
   const playerRef = useRef<PlayerEntity | null>(null);
   if (playerRef.current === null) {
@@ -55,52 +55,36 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
   }
   const player = playerRef.current;
 
-  // TEMPORARY test scaffolding (game/dummyTarget.ts) — verifies ability
-  // activation/resolveAbilityHit actually deals damage before zombies
-  // (Sulaiman's system) exist. Placed off-center so it's within range of
-  // the mock OFFENSE/UTILITY abilities' range stat (see data/mockAbilities.ts).
-  const dummyTargetRef = useRef<ReturnType<typeof createDummyTarget> | null>(null);
-  if (dummyTargetRef.current === null) {
-    dummyTargetRef.current = createDummyTarget(
-      `${laneType}-dummy-target`,
-      ARENA_WIDTH * 0.75,
-      ARENA_HEIGHT / 2,
-    );
-  }
-  const dummyDeadAtRef = useRef<number | null>(null);
+  const { enemies, enemiesRef, damageEnemies } = useEnemies({
+    laneType,
+    phase,
+    waveNumber,
+    player,
+  });
 
   const phaseRef = useRef(phase);
-  useEffect(() => {
-    phaseRef.current = phase;
-  }, [phase]);
+  phaseRef.current = phase;
 
+  // The stable window key handler reads these refs, so a newly committed
+  // loadout is available immediately without reattaching the listener.
   const equippedRef = useRef(equippedAbilities);
+  equippedRef.current = equippedAbilities;
+  const previousEquippedRef = useRef(equippedAbilities);
   const cooldownsRef = useRef<[number, number]>([0, 0]);
-  const isFirstEquippedSync = useRef(true);
   useEffect(() => {
-    equippedRef.current = equippedAbilities;
-    if (isFirstEquippedSync.current) {
-      isFirstEquippedSync.current = false;
-    } else {
-      // A pick changed this lane's loadout — reset both cooldowns rather
-      // than trying to track ability identity across applyPick's FIFO slot
-      // shuffle. Simple, and arguably reasonable game feel (fresh loadout,
-      // fresh cooldowns).
-      cooldownsRef.current = [0, 0];
-    }
+    if (previousEquippedRef.current === equippedAbilities) return;
+    previousEquippedRef.current = equippedAbilities;
+    cooldownsRef.current[0] = 0;
+    cooldownsRef.current[1] = 0;
   }, [equippedAbilities]);
 
   const [snapshot, setSnapshot] = useState({ hp: player.hp, isAlive: player.isAlive });
   const lastKnownRef = useRef(snapshot);
-
+  const lastBotRegenAtRef = useRef(0);
   const { getMovementVector } = usePlayerMovement();
 
-  // Main simulation + render loop. Movement/cooldown-ticking only progress
-  // during COMBAT (verification requirement: frozen during PICKING /
-  // PAUSED_GENERATING, not just visually obscured) — rendering still runs
-  // every frame so the canvas reflects current state either way.
   useEffect(() => {
-    let rafId: number;
+    let rafId = 0;
     let lastTime = performance.now();
 
     function render() {
@@ -109,14 +93,28 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
       if (!canvas || !ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const dummy = dummyTargetRef.current!;
-      if (dummy.hp > 0) {
-        const dx = dummy.x * CANVAS_SCALE;
-        const dy = dummy.y * CANVAS_SCALE;
-        ctx.fillStyle = "#888888";
-        ctx.fillRect(dx - 10, dy - 10, 20, 20);
+      const now = performance.now();
+      for (const enemy of enemiesRef.current) {
+        if (!enemy.alive) continue;
+        const x = enemy.x * CANVAS_SCALE;
+        const y = enemy.y * CANVAS_SCALE;
+        const radius = enemy.radius * CANVAS_SCALE;
+
+        ctx.fillStyle = enemy.flashUntil && enemy.flashUntil > now ? "#ffffff" : "#77a83b";
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#18210f";
+        ctx.fillRect(x - radius * 0.45, y - radius * 0.25, radius * 0.25, radius * 0.25);
+        ctx.fillRect(x + radius * 0.2, y - radius * 0.25, radius * 0.25, radius * 0.25);
+
+        const barWidth = Math.max(18, radius * 2);
+        const hpFraction = Math.max(0, Math.min(1, enemy.hp / enemy.maxHp));
+        ctx.fillStyle = "#2a1111";
+        ctx.fillRect(x - barWidth / 2, y - radius - 8, barWidth, 4);
         ctx.fillStyle = "#e33e3e";
-        ctx.fillRect(dx - 10, dy - 18, 20 * (dummy.hp / dummy.maxHp), 4);
+        ctx.fillRect(x - barWidth / 2, y - radius - 8, barWidth * hpFraction, 4);
       }
 
       const px = player.x * CANVAS_SCALE;
@@ -151,7 +149,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
     }
 
     function tick(now: number) {
-      const dt = Math.min((now - lastTime) / 1000, 0.1);
+      const deltaSeconds = Math.min((now - lastTime) / 1000, 0.1);
       lastTime = now;
 
       if (phaseRef.current === "COMBAT" && player.isAlive) {
@@ -159,29 +157,83 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
           const move = getMovementVector();
           if (move.x !== 0 || move.y !== 0) {
             const next = clampToArena(
-              player.x + move.x * PLAYER_MOVE_SPEED * dt,
-              player.y + move.y * PLAYER_MOVE_SPEED * dt,
+              player.x + move.x * PLAYER_MOVE_SPEED * deltaSeconds,
+              player.y + move.y * PLAYER_MOVE_SPEED * deltaSeconds,
             );
             player.x = next.x;
             player.y = next.y;
             player.facingDirection = { x: move.x, y: move.y };
           }
-        }
-        // TEMPORARY placeholder — bot lane's entity sits static here until
-        // Darshan's botController.decideBotMovement is implemented and
-        // wired in. Do not build real bot movement logic in this file.
+        } else {
+          const nearestEnemy = enemiesRef.current
+            .filter((enemy) => enemy.alive)
+            .reduce<Enemy | null>((nearest, enemy) => {
+              if (!nearest) return enemy;
+              const enemyDistance = Math.hypot(enemy.x - player.x, enemy.y - player.y);
+              const nearestDistance = Math.hypot(nearest.x - player.x, nearest.y - player.y);
+              return enemyDistance < nearestDistance ? enemy : nearest;
+            }, null);
 
-        for (let i = 0; i < cooldownsRef.current.length; i++) {
-          cooldownsRef.current[i] = Math.max(0, cooldownsRef.current[i] - dt);
+          if (nearestEnemy) {
+            const dx = nearestEnemy.x - player.x;
+            const dy = nearestEnemy.y - player.y;
+            const distance = Math.hypot(dx, dy);
+            if (distance > 0) {
+              const distancePx = distance * CANVAS_SCALE;
+              const baseDirection =
+                distancePx < BOT_RETREAT_DISTANCE_PX
+                  ? { x: -dx / distance, y: -dy / distance }
+                  : distancePx > BOT_APPROACH_DISTANCE_PX
+                    ? { x: dx / distance, y: dy / distance }
+                    : { x: -dy / distance, y: dx / distance };
+              let moveX = baseDirection.x;
+              let moveY = baseDirection.y;
+              const playerXPx = player.x * CANVAS_SCALE;
+              const playerYPx = player.y * CANVAS_SCALE;
+              if (playerXPx < BOT_EDGE_BIAS_PX) moveX += 0.75;
+              if (playerXPx > ARENA_WIDTH * CANVAS_SCALE - BOT_EDGE_BIAS_PX) moveX -= 0.75;
+              if (playerYPx < BOT_EDGE_BIAS_PX) moveY += 0.75;
+              if (playerYPx > ARENA_HEIGHT * CANVAS_SCALE - BOT_EDGE_BIAS_PX) moveY -= 0.75;
+              const moveLength = Math.hypot(moveX, moveY) || 1;
+              const direction = { x: moveX / moveLength, y: moveY / moveLength };
+              const speedScale = distancePx < BOT_RETREAT_DISTANCE_PX ? 1 : 0.65;
+              const step = (BOT_MOVE_SPEED_PX / CANVAS_SCALE) * speedScale * deltaSeconds;
+              const next = clampToArena(
+                player.x + direction.x * step,
+                player.y + direction.y * step,
+              );
+              player.x = next.x;
+              player.y = next.y;
+              player.facingDirection = direction;
+            }
+          }
+
+          if (now - lastBotRegenAtRef.current >= 1000) {
+            player.hp = Math.min(player.maxHp, player.hp + BOT_REGEN_PER_SECOND);
+            lastBotRegenAtRef.current = now;
+          }
         }
 
-        const dummy = dummyTargetRef.current!;
-        if (dummy.hp <= 0) {
-          if (dummyDeadAtRef.current === null) {
-            dummyDeadAtRef.current = now;
-          } else if (now - dummyDeadAtRef.current > DUMMY_RESPAWN_MS) {
-            dummy.hp = dummy.maxHp;
-            dummyDeadAtRef.current = null;
+        for (let index = 0; index < cooldownsRef.current.length; index += 1) {
+          cooldownsRef.current[index] = Math.max(
+            0,
+            cooldownsRef.current[index] - deltaSeconds,
+          );
+        }
+
+        if (laneType === "bot") {
+          for (const slot of [0, 1] as const) {
+            if (cooldownsRef.current[slot] > 0) continue;
+            const ability = equippedRef.current[slot];
+            const hitIds = damageEnemies(ability, { x: player.x, y: player.y });
+            if (hitIds.length === 0) continue;
+
+            cooldownsRef.current[slot] = demoCooldownSeconds(ability.cooldownSeconds);
+            console.log(
+              `[usePlayerCombat] bot auto-fired "${ability.name}" (slot ${slot}) — hit:`,
+              hitIds,
+            );
+            break;
           }
         }
       }
@@ -197,49 +249,34 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
+    // getMovementVector, damageEnemies, and enemiesRef are stable refs/accessors for this
+    // lane's lifetime; the live phase/loadout values are read through refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [laneType, canvasRef]);
+  }, [canvasRef, laneType, player]);
 
-  // J/K ability activation — human lane only (spec section 3). Event-driven
-  // (not per-frame polling): a keypress checks cooldown/phase at that exact
-  // instant, no queueing.
   useEffect(() => {
     if (laneType !== "human") return;
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (phaseRef.current !== "COMBAT" || !player.isAlive) return;
+      if (phaseRef.current !== "COMBAT" || !player.isAlive || event.repeat) return;
       const slot = ABILITY_KEYS[event.key.toLowerCase()];
-      if (slot === undefined) return;
-
-      if (cooldownsRef.current[slot] > 0) return; // on cooldown — no queueing, no partial activation
+      if (slot === undefined || cooldownsRef.current[slot] > 0) return;
 
       const ability = equippedRef.current[slot];
-      const targets: Damageable[] = [
-        dummyTargetRef.current!,
-        // TODO: Sulaiman's zombie system — add this lane's live zombie
-        // entities here, e.g. ...zombieEntitiesForLane(laneType)
-      ];
-      const hitIds = resolveAbilityHit(ability, { x: player.x, y: player.y }, targets);
-      cooldownsRef.current[slot] = ability.cooldownSeconds;
+      const hitIds = damageEnemies(ability, { x: player.x, y: player.y });
+      cooldownsRef.current[slot] = demoCooldownSeconds(ability.cooldownSeconds);
 
       console.log(
         `[usePlayerCombat] ${laneType} activated "${ability.name}" (slot ${slot}) — hit:`,
         hitIds,
-        "dummy hp now",
-        dummyTargetRef.current!.hp,
       );
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [laneType, player]);
+  }, [damageEnemies, laneType, player]);
 
-  // TEMPORARY debug hook — lets you manually verify takeDamage/death from
-  // the browser console before zombies exist to deal real damage:
-  //   __debugDamagePlayer.human(30)   __debugDamagePlayer.bot(100)
-  // TODO: zombie attacks call player.takeDamage(amount) once the zombie
-  // system exists — that's the real path this stands in for. Delete this
-  // effect once that's wired up.
+  // Temporary death-path helper retained for quick hackathon verification.
   useEffect(() => {
     const globalWindow = window as unknown as {
       __debugDamagePlayer?: Record<string, (amount: number) => void>;
@@ -262,5 +299,6 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
     maxHealth: player.maxHp,
     isAlive: snapshot.isAlive,
     cooldownsRemaining: cooldownsRef.current,
+    enemies,
   };
 }

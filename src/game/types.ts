@@ -53,6 +53,23 @@ export interface PlayerEntity extends Damageable {
   facingDirection: { x: number; y: number }; // normalized
 }
 
+export interface Enemy {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  hp: number;
+  maxHp: number;
+  speed: number;
+  damage: number;
+  attackRange: number;
+  attackCooldownMs: number;
+  lastAttackAt: number;
+  alive: boolean;
+  kind: "zombie";
+  flashUntil?: number;
+}
+
 export type ZombieAttackType = "MELEE" | "RANGED" | "AURA";
 
 // Spec 4.1 — zombie stat schema, generated once per wave per lane.

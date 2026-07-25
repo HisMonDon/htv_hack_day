@@ -7,6 +7,8 @@ export interface HUDProps {
 }
 
 const LOW_HP_THRESHOLD = 0.25;
+const DEMO_MIN_COOLDOWN_SECONDS = 0.6;
+const DEMO_MAX_COOLDOWN_SECONDS = 1.8;
 
 export function HUD({ laneState }: HUDProps) {
   const hpFraction = laneState.maxHealth > 0 ? laneState.health / laneState.maxHealth : 0;
@@ -36,7 +38,10 @@ export function HUD({ laneState }: HUDProps) {
       <div className="hud__abilities">
         {laneState.equippedAbilities.map((ability, index) => {
           const remaining = laneState.abilityCooldownRemainingSeconds[index];
-          const max = ability.cooldownSeconds;
+          const max = Math.max(
+            DEMO_MIN_COOLDOWN_SECONDS,
+            Math.min(DEMO_MAX_COOLDOWN_SECONDS, ability.cooldownSeconds),
+          );
           const isReady = remaining <= 0;
           const fillFraction = max > 0 ? Math.max(0, Math.min(1, 1 - remaining / max)) : 1;
           const categoryColor = categoryColorVar(ability.category);

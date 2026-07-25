@@ -84,33 +84,27 @@ export function LaneView({
   // Bot lane's auto-pick — the old per-lane timer fired this by watching its
   // own local phase state; now phase is a prop driven by the shared clock,
   // so this fires once per PICKING-phase entry instead.
-  const hasAutoPickedForPhaseRef = useRef(false);
   useEffect(() => {
-    if (matchPhase !== "PICKING") {
-      hasAutoPickedForPhaseRef.current = false;
-      return;
-    }
-    if (hasAutoPickedForPhaseRef.current) return;
-    hasAutoPickedForPhaseRef.current = true;
-    generation.maybeAutoPickForBot();
+    if (laneType !== "bot" || matchPhase !== "PICKING") return;
+    const safeLatestDelayMs = Math.max(0, (pickTimeRemaining - 0.2) * 1000);
+    const minimumDelayMs = Math.min(2000, safeLatestDelayMs);
+    const maximumDelayMs = Math.min(5000, safeLatestDelayMs);
+    const delayMs = minimumDelayMs + Math.random() * (maximumDelayMs - minimumDelayMs);
+    const timeoutId = window.setTimeout(() => generation.maybeAutoPickForBot(), delayMs);
+    return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchPhase]);
+  }, [laneType, matchPhase]);
 
-  // Task 4 — player entity, WASD movement (human lane), J/K ability
-  // activation (human lane), and combat resolution against a temporary
-  // dummy target. Renders directly into canvasRef every frame. Only active
-  // during matchPhase === "COMBAT" (enforced inside the hook).
-  const { player, health, maxHealth, isAlive, cooldownsRemaining } = usePlayerCombat({
+  // Per-lane player movement, J/K abilities, zombie combat, and canvas
+  // rendering. The shared match clock remains read-only here.
+  const { player, health, maxHealth, isAlive, cooldownsRemaining, enemies } = usePlayerCombat({
     laneType,
     phase: matchPhase,
+    waveNumber: matchWaveNumber,
     equippedAbilities,
     canvasRef,
   });
   isAliveRef.current = isAlive;
-
-  // TODO: zombie rendering/spawning (Sulaiman's system, not built yet)
-  // still needs to be drawn into this same canvasRef alongside the player
-  // entity — out of this task's scope.
 
   // Section 4 — once this lane's player dies it freezes permanently: capture
   // the shared clock's values at the instant of death and keep showing those
@@ -144,7 +138,7 @@ export function LaneView({
     health,
     maxHealth,
     equippedAbilities,
-    currentZombieStats: null, // owned by the zombie system, not built yet
+    currentZombieStats: null, // MVP enemies use deterministic per-wave stats.
     isAlive,
     survivalTimeSeconds,
     // botController.ts (Darshan's, not mine to touch) assumes canvas pixel
@@ -153,7 +147,11 @@ export function LaneView({
     // so decideBotMovement/decideBotAbilityUse get correctly-scaled input
     // once wired in.
     actorPosition: { x: player.x * CANVAS_SCALE, y: player.y * CANVAS_SCALE },
-    activeZombies: [], // owned by the zombie system, not built yet
+    activeZombies: enemies.map((enemy) => ({
+      id: enemy.id,
+      position: { x: enemy.x * CANVAS_SCALE, y: enemy.y * CANVAS_SCALE },
+      health: enemy.hp,
+    })),
     abilityCooldownRemainingSeconds: cooldownsRemaining,
     player,
   };
