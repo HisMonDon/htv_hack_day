@@ -1,0 +1,48 @@
+/* Chaos Roll design tokens — see design plan: dark unstable-cabinet palette,
+   two lane accents + one danger accent, muted category tags underneath. */
+:root {
+  /* Base */
+  --color-void: #0b0b0e;
+  --color-panel: #1a1b20;
+  --color-panel-raised: #232429;
+  --color-border: #34363d;
+  --color-bone: #ede6d6;
+  --color-bone-dim: #9a9488;
+
+  /* Lane + danger accents — the only colors allowed to be loud */
+  --color-human: #35e0c8;
+  --color-bot: #ff3d7f;
+  --color-danger: #ff2e2e;
+
+  /* Category tags — deliberately muted so they never compete with the
+     lane/danger accents above */
+  --color-offense: #c4552b;
+  --color-mobility: #3b8fa3;
+  --color-defense: #6b8e4e;
+  --color-utility: #8a7bae;
+
+  --font-display: "Bungee", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-void);
+  color: var(--color-bone);
+  font-family: var(--font-mono);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-bone);
+  outline-offset: 2px;
+}

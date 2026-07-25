@@ -1,27 +1,44 @@
-import { useRef, useState } from "react";
-import type { Ability, LaneState, LaneType } from "../game/types";
-import { useLaneTimer } from "../game/useLaneTimer";
+import { useEffect, useRef, useState } from "react";
+import type { Ability, LanePhase, LaneState, LaneType } from "../game/types";
+import { useLaneGeneration } from "../game/useLaneGeneration";
+import type { LaneAdapter } from "../game/useMatchClock";
 import { applyPick } from "../game/applyPick";
 import { decideBotAbilityPick } from "../game/botController";
 import { usePlayerCombat } from "../game/usePlayerCombat";
 import { CANVAS_SCALE } from "../game/arena";
 import { HUD } from "./HUD";
 import { PickOverlay } from "./PickOverlay";
+import "./LaneView.css";
 
 export interface LaneViewProps {
   laneType: LaneType;
   initialEquippedAbilities: [Ability, Ability];
   survivalTimeSeconds: number;
+  // Shared match clock (game/useMatchClock.ts), owned by LobbyView and fed
+  // into both LaneView instances so they always show the same wave/phase
+  // (Task 5). Ability generation and pick resolution stay per-lane below.
+  matchPhase: LanePhase;
+  matchWaveNumber: number;
+  combatTimeRemaining: number;
+  pickTimeRemaining: number;
+  registerLane: (laneType: LaneType, adapter: LaneAdapter) => void;
+  notifyGenerationReady: () => void;
 }
 
-// Renders and drives one lane (human or bot). Owns its own wave/pick timer
-// instance (game/useLaneTimer.ts) and its own equipped-abilities state — the
-// two LaneView instances never share a clock or touch each other's state
-// (spec section 1 / Task 1.1).
+// Renders and drives one lane (human or bot). Reads the shared match clock
+// for phase/wave/timers and owns its own ability-generation state and
+// equipped-abilities state — the two LaneView instances never touch each
+// other's generation or loadout (spec section 1 / Task 5).
 export function LaneView({
   laneType,
   initialEquippedAbilities,
   survivalTimeSeconds,
+  matchPhase,
+  matchWaveNumber,
+  combatTimeRemaining,
+  pickTimeRemaining,
+  registerLane,
+  notifyGenerationReady,
 }: LaneViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -37,11 +54,11 @@ export function LaneView({
   // Task 4 — health/isAlive used to be static placeholder props; they're
   // now driven by the real player entity/combat system. isAliveRef is
   // populated below (after usePlayerCombat runs) but declared here so the
-  // useLaneTimer closure below can close over it — the ref is read lazily
-  // by useLaneTimer's interval, not at call time, so this ordering is safe.
+  // useLaneGeneration closure below can close over it — the ref is read
+  // lazily, not at call time, so this ordering is safe.
   const isAliveRef = useRef(true);
 
-  const timer = useLaneTimer({
+  const generation = useLaneGeneration({
     laneType,
     getCurrentLoadout: () => equippedRef.current,
     onApplyPick: (picked) => {
@@ -52,15 +69,40 @@ export function LaneView({
     isAlive: () => isAliveRef.current,
     // Bot lane's pick is decided by botController, never by human input.
     autoPickForBot: laneType === "bot" ? decideBotAbilityPick : undefined,
+    notifyGenerationReady,
   });
+
+  // Register this lane's generation adapter with the shared match clock once
+  // on mount (and again if the adapter identity changes) — Map.set on the
+  // same laneType key is idempotent, and useMatchClock guards the
+  // one-time "kick off wave 1's generation" call internally.
+  useEffect(() => {
+    registerLane(laneType, generation.adapter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [laneType, registerLane, generation.adapter]);
+
+  // Bot lane's auto-pick — the old per-lane timer fired this by watching its
+  // own local phase state; now phase is a prop driven by the shared clock,
+  // so this fires once per PICKING-phase entry instead.
+  const hasAutoPickedForPhaseRef = useRef(false);
+  useEffect(() => {
+    if (matchPhase !== "PICKING") {
+      hasAutoPickedForPhaseRef.current = false;
+      return;
+    }
+    if (hasAutoPickedForPhaseRef.current) return;
+    hasAutoPickedForPhaseRef.current = true;
+    generation.maybeAutoPickForBot();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchPhase]);
 
   // Task 4 — player entity, WASD movement (human lane), J/K ability
   // activation (human lane), and combat resolution against a temporary
   // dummy target. Renders directly into canvasRef every frame. Only active
-  // during timer.phase === "COMBAT" (enforced inside the hook).
+  // during matchPhase === "COMBAT" (enforced inside the hook).
   const { player, health, maxHealth, isAlive, cooldownsRemaining } = usePlayerCombat({
     laneType,
-    phase: timer.phase,
+    phase: matchPhase,
     equippedAbilities,
     canvasRef,
   });
@@ -70,10 +112,35 @@ export function LaneView({
   // still needs to be drawn into this same canvasRef alongside the player
   // entity — out of this task's scope.
 
-  const { pick, ...timerState } = timer;
+  // Section 4 — once this lane's player dies it freezes permanently: capture
+  // the shared clock's values at the instant of death and keep showing those
+  // rather than the still-advancing shared clock (which keeps moving for the
+  // surviving lane).
+  const frozenAtDeathRef = useRef<{
+    phase: LanePhase;
+    waveNumber: number;
+    combatTimeRemaining: number;
+    pickTimeRemaining: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!isAlive && frozenAtDeathRef.current === null) {
+      frozenAtDeathRef.current = { phase: matchPhase, waveNumber: matchWaveNumber, combatTimeRemaining, pickTimeRemaining };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAlive]);
+
+  const display = isAlive
+    ? { phase: matchPhase, waveNumber: matchWaveNumber, combatTimeRemaining, pickTimeRemaining }
+    : frozenAtDeathRef.current!;
+
   const laneState: LaneState = {
     laneType,
-    ...timerState,
+    phase: display.phase,
+    waveNumber: display.waveNumber,
+    combatTimeRemaining: display.combatTimeRemaining,
+    pickTimeRemaining: display.pickTimeRemaining,
+    pendingOptions: generation.pendingOptions,
+    isGenerationReady: generation.isGenerationReady,
     health,
     maxHealth,
     equippedAbilities,
@@ -92,21 +159,35 @@ export function LaneView({
   };
 
   const showInteractivePickOverlay =
-    laneType === "human" && timer.phase === "PICKING" && timer.pendingOptions !== null;
+    laneType === "human" &&
+    display.phase === "PICKING" &&
+    generation.pendingOptions !== null &&
+    !generation.hasCommittedPick;
 
   return (
-    <div>
-      <canvas ref={canvasRef} width={480} height={360} />
+    <div className={`lane lane--${laneType}`}>
       <HUD laneState={laneState} />
-      {!isAlive && <p>Defeated at wave {timer.waveNumber}</p>}
-      {isAlive && timer.phase === "PAUSED_GENERATING" && <p>Waiting on ability generation…</p>}
-      {isAlive && showInteractivePickOverlay && timer.pendingOptions && (
-        <PickOverlay
-          options={timer.pendingOptions}
-          timeRemainingSeconds={timer.pickTimeRemaining}
-          onPick={pick}
-        />
-      )}
+      <div className="lane__arena">
+        <canvas className="lane__canvas" ref={canvasRef} width={480} height={360} />
+        {!isAlive && (
+          <p className="lane__status lane__status--defeated">
+            DEFEATED — WAVE {display.waveNumber}
+          </p>
+        )}
+        {isAlive && display.phase === "PAUSED_GENERATING" && (
+          <p className="lane__status lane__status--waiting">Waiting on ability generation…</p>
+        )}
+        {isAlive && display.phase === "PICKING" && generation.hasCommittedPick && (
+          <p className="lane__status lane__status--waiting">Picked — waiting on other lane…</p>
+        )}
+        {isAlive && showInteractivePickOverlay && generation.pendingOptions && (
+          <PickOverlay
+            options={generation.pendingOptions}
+            timeRemainingSeconds={display.pickTimeRemaining}
+            onPick={generation.pick}
+          />
+        )}
+      </div>
     </div>
   );
 }

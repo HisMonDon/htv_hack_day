@@ -111,7 +111,9 @@ export type LanePhase = "COMBAT" | "PAUSED_GENERATING" | "PICKING" | "TRANSITION
 // instance. Kept as its own type — not just fields on LaneState — so
 // modules that only care about the timer (e.g. a zombie spawner keying off
 // phase/waveNumber) can depend on this exact shape without pulling in the
-// rest of LaneState. Owned by game/useLaneTimer.ts.
+// rest of LaneState. Task 5 — waveNumber/combatTimeRemaining/pickTimeRemaining
+// are now shared across both lanes (game/useMatchClock.ts); pendingOptions/
+// isGenerationReady stay per-lane (game/useLaneGeneration.ts).
 export interface LaneTimerState {
   phase: LanePhase;
   waveNumber: number;
@@ -124,7 +126,8 @@ export interface LaneTimerState {
 // Full per-lane runtime snapshot: the timer state plus everything else a
 // lane needs to render (health, loadout, zombie stats). Combat/HP fields are
 // owned by whichever system tracks the actual fight (zombie system, not yet
-// built); LaneTimerState fields are owned by game/useLaneTimer.ts.
+// built); LaneTimerState fields are split between game/useMatchClock.ts
+// (shared) and game/useLaneGeneration.ts (per-lane).
 export interface LaneState extends LaneTimerState {
   laneType: LaneType;
   health: number;

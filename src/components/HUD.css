@@ -1,0 +1,136 @@
+.hud {
+  --lane-accent: var(--color-human);
+  padding: 0.75rem 1rem;
+  background: var(--color-panel);
+  border-bottom: 2px solid var(--lane-accent);
+}
+
+.hud--bot {
+  --lane-accent: var(--color-bot);
+}
+
+.hud__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.hud__lane-tag {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: var(--color-void);
+  background: var(--lane-accent);
+  padding: 0.2rem 0.5rem;
+  border-radius: 2px;
+}
+
+.hud__wave {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  color: var(--color-bone);
+  letter-spacing: 0.03em;
+}
+
+.hud__timer {
+  font-size: 0.75rem;
+  color: var(--color-bone-dim);
+}
+
+.hud__hp-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.hud__hp-bar {
+  flex: 1;
+  height: 10px;
+  background: var(--color-void);
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.hud__hp-fill {
+  height: 100%;
+  background: var(--lane-accent);
+}
+
+.hud__hp-fill--low {
+  background: var(--color-danger);
+}
+
+.hud__hp-text {
+  font-size: 0.75rem;
+  color: var(--color-bone);
+  min-width: 4.5rem;
+  text-align: right;
+}
+
+.hud__hp-text--low {
+  color: var(--color-danger);
+}
+
+.hud__abilities {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.hud__ability {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.4rem;
+  background: var(--color-panel-raised);
+  border: 1px solid var(--category-color, var(--color-border));
+  border-radius: 3px;
+  opacity: 0.55;
+}
+
+.hud__ability--ready {
+  opacity: 1;
+}
+
+.hud__ability-key {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  color: var(--color-void);
+  background: var(--category-color, var(--color-bone-dim));
+  width: 1.3rem;
+  height: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.hud__ability-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.hud__ability-name {
+  font-size: 0.68rem;
+  color: var(--color-bone);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud__ability-cd-track {
+  height: 4px;
+  background: var(--color-void);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 0.2rem;
+}
+
+.hud__ability-cd-fill {
+  height: 100%;
+  background: var(--category-color, var(--color-bone-dim));
+}

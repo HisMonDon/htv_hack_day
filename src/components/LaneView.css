@@ -1,0 +1,48 @@
+.lane {
+  --lane-accent: var(--color-human);
+  display: flex;
+  flex-direction: column;
+}
+
+.lane--bot {
+  --lane-accent: var(--color-bot);
+}
+
+.lane__arena {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  background: var(--color-void);
+  border-top: 2px solid var(--lane-accent);
+  padding: 0.75rem;
+}
+
+.lane__canvas {
+  image-rendering: pixelated;
+  border: 2px solid var(--color-border);
+  max-width: 100%;
+  height: auto;
+}
+
+.lane__status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  background: rgba(11, 11, 14, 0.85);
+}
+
+.lane__status--defeated {
+  color: var(--color-danger);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+}
+
+.lane__status--waiting {
+  color: var(--color-bone-dim);
+}

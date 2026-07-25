@@ -1,0 +1,39 @@
+.lobby {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.lobby__header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.85rem 1.5rem;
+  border-bottom: 2px solid var(--color-border);
+}
+
+.lobby__title {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  letter-spacing: 0.04em;
+  color: var(--color-bone);
+  margin: 0;
+}
+
+.lobby__subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-bone-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.lobby__lanes {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.lobby__lanes > * + * {
+  border-left: 2px solid var(--color-border);
+}

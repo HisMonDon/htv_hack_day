@@ -97,9 +97,10 @@ export function advanceBotLane(
 ): LaneState {
   if (!laneState.isAlive || deltaSeconds <= 0) return laneState;
 
-  // useLaneTimer owns the COMBAT/PICKING transitions and ability choices in
-  // the current main-branch architecture. This function therefore handles
-  // only the bot's movement, cooldowns, and direct combat effects.
+  // useMatchClock + useLaneGeneration own the COMBAT/PICKING transitions and
+  // ability choices in the current main-branch architecture. This function
+  // therefore handles only the bot's movement, cooldowns, and direct combat
+  // effects.
   void nextAbilityOptions;
 
   const cooldowns = laneState.abilityCooldownRemainingSeconds.map((value) =>

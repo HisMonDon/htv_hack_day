@@ -44,7 +44,8 @@ export interface UsePlayerCombatResult {
 // lane only), J/K ability activation (human lane only), cooldowns, and
 // combat resolution against a temporary dummy target. Runs its own
 // requestAnimationFrame loop and draws directly to canvasRef — independent
-// per lane, matching useLaneTimer's one-instance-per-LaneView pattern.
+// per lane, matching useLaneGeneration's one-instance-per-LaneView pattern
+// (the shared clock, useMatchClock, is the one thing NOT per-lane — see LobbyView).
 export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatResult {
   const { laneType, phase, equippedAbilities, canvasRef } = opts;
 
