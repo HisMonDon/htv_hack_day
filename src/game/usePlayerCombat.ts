@@ -22,6 +22,10 @@ const BOT_APPROACH_DISTANCE_PX = 180;
 const BOT_EDGE_BIAS_PX = 40;
 const DEMO_MIN_COOLDOWN_SECONDS = 0.6;
 const DEMO_MAX_COOLDOWN_SECONDS = 1.8;
+
+function emitAbilityAura(laneType: LaneType, category: Ability["category"]): void {
+  window.dispatchEvent(new CustomEvent("chaos-roll:ability-used", { detail: { laneType, category } }));
+}
 const JUMP_DURATION_MS = 420;
 const DASH_DURATION_MS = 220;
 const JUMP_HEIGHT_PX = 26;
@@ -461,6 +465,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
             );
             applyMovementBehavior(ability, now);
             cooldownsRef.current[slot] = demoCooldownSeconds(ability.cooldownSeconds);
+            emitAbilityAura(laneType, ability.category);
             console.log(
               `[usePlayerCombat] bot auto-fired "${ability.name}" (slot ${slot}) — hit:`,
               hitIds,
@@ -505,6 +510,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
       );
       applyMovementBehavior(ability, now);
       cooldownsRef.current[slot] = demoCooldownSeconds(ability.cooldownSeconds);
+      emitAbilityAura(laneType, ability.category);
 
       console.log(
         `[usePlayerCombat] ${laneType} activated "${ability.name}" (slot ${slot}) — hit:`,
