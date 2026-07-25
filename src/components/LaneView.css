@@ -28,6 +28,8 @@
   height: auto;
 }
 
+.lane__mutant-trait { position:absolute; top:1rem; right:1rem; margin:0; padding:.48rem .62rem; color:#e9d7ff; background:linear-gradient(135deg,rgba(45,18,67,.94),rgba(18,10,29,.9)); border:1px solid #b77aff; border-left:4px solid #d9b4ff; box-shadow:0 0 18px rgba(183,122,255,.32); font-size:.57rem; font-weight:700; letter-spacing:.08em; }.lane__mutant-trait strong { display:block; margin-top:.18rem; color:#fff; font-family:var(--font-display); font-size:.72rem; }
+
 .lane__status {
   position: absolute;
   inset: 0;

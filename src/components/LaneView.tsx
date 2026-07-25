@@ -99,7 +99,7 @@ export function LaneView({
 
   // Per-lane player movement, J/K abilities, zombie combat, and canvas
   // rendering. The shared match clock remains read-only here.
-  const { player, health, maxHealth, isAlive, cooldownsRemaining, enemies } = usePlayerCombat({
+  const { player, health, maxHealth, isAlive, cooldownsRemaining, enemies, activeSpecial } = usePlayerCombat({
     laneType,
     phase: matchPhase,
     waveNumber: matchWaveNumber,
@@ -190,6 +190,7 @@ export function LaneView({
       <HUD laneState={laneState} />
       <div className="lane__arena">
         <canvas className="lane__canvas" ref={canvasRef} width={480} height={360} />
+        {activeSpecial && <p className="lane__mutant-trait">ZOMBIE ABILITY <strong>{activeSpecial.name}</strong> · {activeSpecial.kind}</p>}
         {!isAlive && (
           <p className="lane__status lane__status--defeated">
             DEFEATED — WAVE {display.waveNumber}
