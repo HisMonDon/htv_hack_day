@@ -1,4 +1,6 @@
+import { useCallback, useState } from "react";
 import { LaneView } from "./LaneView";
+import { MatchResult } from "./MatchResult";
 import { createMockEquippedAbilities } from "../data/mockAbilities";
 import { useMatchClock } from "../game/useMatchClock";
 import { getStatRangesForWave } from "../game/statRanges";
@@ -24,8 +26,27 @@ function createStartingLoadout(laneType: LaneType): [Ability, Ability] {
 // health/maxHealth/isAlive are driven internally by LaneView's player
 // entity/combat system (Task 4) — no longer passed in as static placeholders.
 export function LobbyView() {
+  const [result, setResult] = useState<{ type: "victory" | "defeat"; waveNumber: number } | null>(null);
+  const [matchId, setMatchId] = useState(0);
+
+  return (
+    <>
+      <ActiveMatch key={matchId} onResult={setResult} />
+      {result && <MatchResult result={result.type} waveNumber={result.waveNumber} onPlayAgain={() => { setResult(null); setMatchId((id) => id + 1); }} />}
+    </>
+  );
+}
+
+function ActiveMatch({
+  onResult,
+}: {
+  onResult: (result: { type: "victory" | "defeat"; waveNumber: number } | null) => void;
+}) {
   const { phase, waveNumber, combatTimeRemaining, pickTimeRemaining, registerLane, notifyGenerationReady } =
     useMatchClock();
+  const handleDefeated = useCallback((laneType: "human" | "bot", defeatedAtWave: number) => {
+    onResult({ type: laneType === "human" ? "defeat" : "victory", waveNumber: defeatedAtWave });
+  }, [onResult]);
 
   return (
     <div className="lobby">
@@ -44,6 +65,7 @@ export function LobbyView() {
           pickTimeRemaining={pickTimeRemaining}
           registerLane={registerLane}
           notifyGenerationReady={notifyGenerationReady}
+          onDefeated={handleDefeated}
         />
         <LaneView
           laneType="bot"
@@ -55,6 +77,7 @@ export function LobbyView() {
           pickTimeRemaining={pickTimeRemaining}
           registerLane={registerLane}
           notifyGenerationReady={notifyGenerationReady}
+          onDefeated={handleDefeated}
         />
       </div>
     </div>
