@@ -11,6 +11,7 @@ src/vite-env.d.ts
 .env
 .env.*
 !.env.example
+.env.example
 *.local
 
 # Logs
