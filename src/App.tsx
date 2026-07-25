@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LobbyView } from "./components/LobbyView";
 import { createMockEquippedAbilities, createMockAbilityPair } from "./data/mockAbilities";
 import { createMockZombieStatBlock } from "./data/mockZombies";
 import type { LaneState } from "./game/types";
 import { generateTwoAbilityOptions } from "./ai/generateTwoAbilityOptions";
+import { advanceBotLane } from "./game/botController";
 
 // Placeholder lane states built from mock data, standing in for the real
 // per-lane runtime state until the combat/pick loop (spec section 1) is
@@ -21,32 +22,50 @@ function createMockLaneState(laneType: LaneState["laneType"]): LaneState {
     phaseTimeRemainingSeconds: laneType === "human" ? 5 : 15,
     isAlive: true,
     survivalTimeSeconds: 42,
+    actorPosition: { x: 240, y: 180 },
+    activeZombies: laneType === "bot"
+      ? [
+          { id: "bot-zombie-1", position: { x: 340, y: 180 }, health: 35 },
+          { id: "bot-zombie-2", position: { x: 370, y: 210 }, health: 35 },
+        ]
+      : [],
+    abilityCooldownRemainingSeconds: [0, 0],
   };
 }
 
 export function App() {
-  const humanLaneState = createMockLaneState("human");
-  const botLaneState = createMockLaneState("bot");
+  const [humanLaneState] = useState(() => createMockLaneState("human"));
+  const [botLaneState, setBotLaneState] = useState(() => createMockLaneState("bot"));
+  const botOptions = useRef(createMockAbilityPair());
+  const requestedBotOptionWave = useRef<number | null>(null);
 
-  // TEMP sanity check — raw one-shot call to confirm the live Gemini wiring
-  // works before anything is built on top of it (not wired into game state).
-  // Remove once LaneView is swapped over to the real call.
-  // hasRun guards against React 18 StrictMode's dev-only double-invoke of
-  // effects, which would otherwise silently double every Gemini call here
-  // and burn through the free-tier quota twice as fast.
-  const hasRun = useRef(false);
   useEffect(() => {
-    if (hasRun.current) return;
-    hasRun.current = true;
+    const tick = window.setInterval(() => {
+      setBotLaneState((current) => advanceBotLane(current, 0.25, botOptions.current));
+    }, 250);
+    return () => window.clearInterval(tick);
+  }, []);
 
-    generateTwoAbilityOptions(1, "human", [])
+  // Generate the bot's next pick during combat. The fallback pair keeps the
+  // controller playable when no Gemini key is configured; successful bot
+  // generation uses its lane-specific 1.4x stat ranges automatically.
+  useEffect(() => {
+    const nextWave = botLaneState.waveNumber + 1;
+    if (requestedBotOptionWave.current === nextWave) return;
+    requestedBotOptionWave.current = nextWave;
+
+    generateTwoAbilityOptions(
+      nextWave,
+      "bot",
+      botLaneState.equippedAbilities,
+    )
       .then((options) => {
-        console.log("[sanity check] generateTwoAbilityOptions result:", JSON.stringify(options, null, 2));
+        botOptions.current = options;
       })
       .catch((err) => {
-        console.error("[sanity check] generateTwoAbilityOptions failed:", err);
+        console.warn("[bot] using fallback ability options:", err);
       });
-  }, []);
+  }, [botLaneState.equippedAbilities, botLaneState.waveNumber]);
 
   return (
     <LobbyView
