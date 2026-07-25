@@ -55,7 +55,10 @@ function createInitialState(waveNumber: number): MatchClockState {
 // so they always show the same wave number and transition
 // COMBAT -> PICKING -> next wave at the same moment. Per-lane generation and
 // pick resolution remain independent — see useLaneGeneration.ts.
-export function useMatchClock(initialWaveNumber = 1): UseMatchClockResult {
+export function useMatchClock(
+  initialWaveNumber = 1,
+  isRunning = true,
+): UseMatchClockResult {
   const [state, setState] = useState<MatchClockState>(() => createInitialState(initialWaveNumber));
   const stateRef = useRef(state);
   useEffect(() => {
@@ -127,6 +130,8 @@ export function useMatchClock(initialWaveNumber = 1): UseMatchClockResult {
   }, [aliveLaneEntries]);
 
   useEffect(() => {
+    if (!isRunning) return;
+
     const interval = setInterval(() => {
       // Section 4 — once both lanes are dead there is nothing left to
       // advance; freeze the shared clock entirely rather than looping
@@ -169,7 +174,7 @@ export function useMatchClock(initialWaveNumber = 1): UseMatchClockResult {
     }, TICK_MS);
 
     return () => clearInterval(interval);
-  }, [aliveLaneEntries, tryOpenPicking, finalizeRound]);
+  }, [aliveLaneEntries, tryOpenPicking, finalizeRound, isRunning]);
 
   return { ...state, registerLane, notifyGenerationReady };
 }

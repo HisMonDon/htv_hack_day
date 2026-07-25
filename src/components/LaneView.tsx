@@ -146,12 +146,12 @@ export function LaneView({
   // while the surviving lane may continue playing.
   const [liveSurvivalSeconds, setLiveSurvivalSeconds] = useState(survivalTimeSeconds);
   useEffect(() => {
-    if (!isAlive) return;
+    if (!isAlive || matchPhase === "TRANSITIONING") return;
     const intervalId = window.setInterval(() => {
       setLiveSurvivalSeconds((seconds) => seconds + 1);
     }, 1000);
     return () => window.clearInterval(intervalId);
-  }, [isAlive]);
+  }, [isAlive, matchPhase]);
 
   // Section 4 — once this lane's player dies it freezes permanently: capture
   // the shared clock's values at the instant of death and keep showing those
