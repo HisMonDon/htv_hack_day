@@ -34,9 +34,6 @@ function buildAbilitySchema(category: AbilityCategory): Schema {
       sprite: {
         type: Type.OBJECT,
         properties: {
-          // Palette as an array of key/color pairs rather than a keyed object:
-          // Gemini's structured output has no way to express arbitrary object
-          // keys, so an object palette comes back inconsistently shaped.
           palette: {
             type: Type.ARRAY,
             items: {
@@ -48,9 +45,6 @@ function buildAbilitySchema(category: AbilityCategory): Schema {
               required: ["key", "color"],
             },
           },
-          // One string per row, one character per pixel. Far more reliable to
-          // get back well-formed than a nested string[][], and small enough to
-          // regenerate every 15 seconds.
           rows: { type: Type.ARRAY, items: { type: Type.STRING } },
         },
         required: ["palette", "rows"],
@@ -97,12 +91,6 @@ function buildPrompt(
     `Reserve your brightest color for edges, cores, or the business end of the weapon.`,
   ].join("\n");
 }
-
-// Spec 3 — generates one ability option for a lane's controller.
-// currentLoadout (spec 3.4) is passed so Gemini can avoid near-duplicates of
-// what's already equipped. The caller is responsible for calling
-// pickTwoCategories() first and invoking this once per category, then
-// clamping the result with clampAbilityToRange().
 export async function generateAbility(
   waveNumber: number,
   laneType: LaneType,
@@ -115,13 +103,11 @@ export async function generateAbility(
   const raw = await generateStructuredJSON<Ability & { sprite: RawSpriteResponse }>(prompt, schema);
 
   if (raw.category !== category) {
-    // Schema constrains this to a single enum value, but don't trust it blindly.
+
     raw.category = category;
   }
 
-  // Sprite validation failing must not fail the whole ability — the mechanics
-  // are the load-bearing part, and a library silhouette of the right category
-  // is a better outcome than dropping a generated ability entirely.
+
   let sprite;
   try {
     sprite = validateSprite(raw.sprite);

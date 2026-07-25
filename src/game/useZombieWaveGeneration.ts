@@ -58,11 +58,12 @@ export function useZombieWaveGeneration(
         return plan;
       })
       .catch((error) => {
+        const fallbackPlan = plansRef.current.get(requestedWave) ?? createFallbackZombieWavePlan(requestedWave);
         console.warn(
           `[useZombieWaveGeneration] live generation failed for wave ${requestedWave}; keeping fallback roster:`,
           error instanceof Error ? error.message : error,
         );
-        return plansRef.current.get(requestedWave) ?? createFallbackZombieWavePlan(requestedWave);
+        return fallbackPlan;
       })
       .finally(() => {
         inFlightRef.current.delete(requestedWave);

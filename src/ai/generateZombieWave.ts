@@ -320,7 +320,6 @@ function writeCache(plan: ZombieWavePlan): void {
   try {
     localStorage.setItem(`${CACHE_PREFIX}${plan.waveNumber}`, JSON.stringify(plan));
   } catch {
-    // Storage can be unavailable or full; generation should still succeed.
   }
 }
 

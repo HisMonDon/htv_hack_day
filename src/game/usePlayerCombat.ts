@@ -596,10 +596,6 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
             applyMovementBehavior(ability, now);
             cooldownsRef.current[slot] = demoCooldownSeconds(ability.cooldownSeconds);
             emitAbilityAura(laneType, ability.category);
-            console.log(
-              `[usePlayerCombat] bot auto-fired "${ability.name}" (slot ${slot}) — hit:`,
-              hitIds,
-            );
             break;
           }
         }
