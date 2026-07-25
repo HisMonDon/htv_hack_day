@@ -32,6 +32,12 @@ export interface Ability {
   // substitutes a library sprite (data/spriteLibrary.ts) rather than leaving
   // callers to handle an absent sprite.
   sprite: SpriteData;
+  // One made-up sentence explaining why Gemini "designed" this ability for
+  // the controller's current loadout (e.g. "Your build lacks crowd control,
+  // so this weapon pushes enemies away."). Pure flavor text, shown on the
+  // pick card — Gemini is instructed to invent a plausible-sounding reason,
+  // not to actually reason about build gaps.
+  reason: string;
 }
 
 // Task 4 — minimal shared interface for anything that can take damage from
@@ -56,6 +62,10 @@ export interface PlayerEntity extends Damageable {
   maxHp: number;
   isAlive: boolean;
   facingDirection: { x: number; y: number }; // normalized
+  // Set by usePlayerCombat.ts while a jump/dash/teleport is resolving —
+  // useEnemies.ts's advanceEnemies skips zombie contact damage during it, so
+  // a jump actually reads as "jumping over" rather than just a fast walk.
+  invulnerableUntil?: number;
 }
 
 export type ZombieAttackShape = "CONTACT" | "BOLT" | "CONE" | "AURA";
@@ -121,6 +131,10 @@ export interface Enemy {
   alive: boolean;
   kind: "zombie";
   flashUntil?: number;
+  // Set by combat VFX (game/useCombatEffects.ts) when a stun/freeze-flavored
+  // ability hits — advanceEnemies (game/useEnemies.ts) skips movement/attack
+  // for this enemy while performance.now() < stunnedUntil.
+  stunnedUntil?: number;
 }
 
 

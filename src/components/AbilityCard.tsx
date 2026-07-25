@@ -52,6 +52,12 @@ export function AbilityCard({ ability, onSelect }: AbilityCardProps) {
           </span>
         )}
       </div>
+      {ability.reason && (
+        <p className="ability-card__reason">
+          <span className="ability-card__reason-label">WHY THIS </span>
+          {ability.reason}
+        </p>
+      )}
     </div>
   );
 }

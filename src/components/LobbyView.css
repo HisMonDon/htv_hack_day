@@ -11,9 +11,9 @@
   align-items: baseline;
   gap: 0.75rem;
   padding: 0.85rem 1.5rem;
-  background: var(--color-panel);
   border-bottom: 4px solid transparent;
   border-image: var(--hazard-stripes) 4;
+  background: linear-gradient(180deg, var(--color-panel), var(--color-void));
 }
 
 .lobby__header::before {
@@ -45,7 +45,9 @@
     2px 0 0 var(--color-bot),
     -2px 0 0 var(--color-human),
     3px 3px 0 var(--color-blood),
-    5px 5px 0 var(--color-void);
+    5px 5px 0 var(--color-void),
+    0 0 10px rgba(var(--glow-human-rgb), 0.55),
+    0 0 22px rgba(var(--glow-bot-rgb), 0.35);
 }
 
 .lobby__subtitle {
@@ -58,12 +60,17 @@
 
 .lobby__lanes {
   flex: 1;
+  min-height: 0;
   display: grid;
   /* minmax(0, 1fr) rather than 1fr: a bare 1fr track floors at min-content,
      so a long generated ability name in one lane's HUD widened that lane and
      pushed the page into horizontal overflow. The two lanes must stay
      symmetrical regardless of what Gemini names an ability. */
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  /* Without an explicit row track, a single implicit "auto" row sizes to its
+     content instead of filling .lobby__lanes's full (definite) height —
+     that's what left the bottom half of the viewport empty. */
+  grid-template-rows: minmax(0, 1fr);
 }
 
 /* Hazard tape down the centre — the two lanes are opposing machines, and

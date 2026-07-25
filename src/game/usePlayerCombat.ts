@@ -19,6 +19,7 @@ import {
   clampToArena,
 } from "./arena";
 import { createPlayerEntity } from "./playerEntity";
+import { useCombatEffects } from "./useCombatEffects";
 import { useEnemies } from "./useEnemies";
 import { usePlayerMovement } from "./usePlayerMovement";
 import { renderPixelArt } from "./renderPixelArt";
@@ -28,12 +29,54 @@ const BOT_MOVE_SPEED_PX = 80;
 const BOT_RETREAT_DISTANCE_PX = 80;
 const BOT_APPROACH_DISTANCE_PX = 180;
 const BOT_EDGE_BIAS_PX = 40;
-const BOT_REGEN_PER_SECOND = 3;
 const DEMO_MIN_COOLDOWN_SECONDS = 0.6;
 const DEMO_MAX_COOLDOWN_SECONDS = 1.8;
+const JUMP_DURATION_MS = 420;
+const DASH_DURATION_MS = 220;
+const JUMP_HEIGHT_PX = 26;
 
 function demoCooldownSeconds(value: number): number {
   return Math.max(DEMO_MIN_COOLDOWN_SECONDS, Math.min(DEMO_MAX_COOLDOWN_SECONDS, value));
+}
+
+// A forced repositioning in progress — overrides normal movement control
+// (human input / bot AI) for its duration. "jump" additionally grants brief
+// invulnerability and a visual arc so it reads as jumping OVER zombies
+// rather than just a fast walk.
+interface MovementAction {
+  kind: "dash" | "jump";
+  startX: number;
+  startY: number;
+  targetX: number;
+  targetY: number;
+  startedAt: number;
+  durationMs: number;
+}
+
+// Ability.movementBehavior/name/description say things like "dash", "blink",
+// "teleport", "jump", "leap" — until now nothing actually moved the player
+// when one of these fired. This turns that text into a real position change.
+function movementKindFor(ability: Ability): "teleport" | "jump" | "dash" | null {
+  const haystack = `${ability.movementBehavior ?? ""} ${ability.name} ${ability.description}`.toLowerCase();
+  if (haystack.includes("teleport") || haystack.includes("blink")) return "teleport";
+  if (haystack.includes("jump") || haystack.includes("leap") || haystack.includes("launch")) return "jump";
+  if (
+    haystack.includes("dash") ||
+    haystack.includes("sprint") ||
+    haystack.includes("roll") ||
+    haystack.includes("slide") ||
+    haystack.includes("charge")
+  )
+    return "dash";
+  return null;
+}
+
+function hasteFor(ability: Ability): { multiplier: number; durationMs: number } | null {
+  const type = (ability.statusEffect.type ?? "").toLowerCase();
+  if (!["haste", "speed", "hasten", "quicken"].some((k) => type.includes(k))) return null;
+  const magnitude = Math.max(0, Math.min(2, ability.statusEffect.magnitude ?? 0.3));
+  const durationSeconds = ability.statusEffect.durationSeconds ?? 3;
+  return { multiplier: 1 + magnitude, durationMs: durationSeconds * 1000 };
 }
 
 // Arena palette — deliberately duplicated from styles/theme.css rather than
@@ -251,6 +294,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
     wavePlan: zombieWavePlan,
     player,
   });
+  const combatEffects = useCombatEffects(equippedAbilities);
 
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
@@ -270,8 +314,60 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
 
   const [snapshot, setSnapshot] = useState({ hp: player.hp, isAlive: player.isAlive });
   const lastKnownRef = useRef(snapshot);
-  const lastBotRegenAtRef = useRef(0);
   const { getMovementVector } = usePlayerMovement();
+
+  const movementActionRef = useRef<MovementAction | null>(null);
+  const hasteRef = useRef<{ multiplier: number; until: number }>({ multiplier: 1, until: 0 });
+
+  // Called at both activation sites (human keydown, bot auto-fire) right
+  // after an ability actually fires — resolves its movementBehavior/status
+  // text into a real position change or a temporary speed boost.
+  function applyMovementBehavior(ability: Ability, now: number): void {
+    const kind = movementKindFor(ability);
+    if (kind) {
+      const facing =
+        player.facingDirection.x !== 0 || player.facingDirection.y !== 0
+          ? player.facingDirection
+          : { x: 0, y: 1 };
+      const travelDistance = Math.max(1.5, Math.min(ability.range || 4, 8));
+      const dest = clampToArena(
+        player.x + facing.x * travelDistance,
+        player.y + facing.y * travelDistance,
+      );
+
+      if (kind === "teleport") {
+        player.x = dest.x;
+        player.y = dest.y;
+        movementActionRef.current = null;
+      } else if (kind === "jump") {
+        movementActionRef.current = {
+          kind: "jump",
+          startX: player.x,
+          startY: player.y,
+          targetX: dest.x,
+          targetY: dest.y,
+          startedAt: now,
+          durationMs: JUMP_DURATION_MS,
+        };
+        player.invulnerableUntil = now + JUMP_DURATION_MS;
+      } else {
+        movementActionRef.current = {
+          kind: "dash",
+          startX: player.x,
+          startY: player.y,
+          targetX: dest.x,
+          targetY: dest.y,
+          startedAt: now,
+          durationMs: DASH_DURATION_MS,
+        };
+      }
+    }
+
+    const haste = hasteFor(ability);
+    if (haste) {
+      hasteRef.current = { multiplier: haste.multiplier, until: now + haste.durationMs };
+    }
+  }
 
   useEffect(() => {
     let rafId = 0;
@@ -291,6 +387,10 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
       drawArenaFloor(ctx, canvas.width, canvas.height);
 
       const now = performance.now();
+      const shake = combatEffects.getShakeOffset(now);
+      ctx.save();
+      ctx.translate(shake.x, shake.y);
+
       for (const enemy of enemiesRef.current) {
         if (!enemy.alive) continue;
         drawEnemyAbilityEffect(ctx, enemy, now);
@@ -305,8 +405,14 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
         const top = Math.round(y - sprite.height / 2);
         ctx.drawImage(sprite, left, top);
 
-        if (enemy.flashUntil && enemy.flashUntil > now) {
-          ctx.strokeStyle = COLOR_BONE;
+        const isStunned = !!enemy.stunnedUntil && enemy.stunnedUntil > now;
+        const isFlashed = !!enemy.flashUntil && enemy.flashUntil > now;
+        if (isFlashed || isStunned) {
+          ctx.strokeStyle = isFlashed
+            ? COLOR_BONE
+            : Math.floor(now / 100) % 2 === 0
+              ? "#fff8b0"
+              : "#ffe066";
           ctx.lineWidth = 2;
           ctx.strokeRect(left - 1, top - 1, sprite.width + 2, sprite.height + 2);
         }
@@ -319,15 +425,36 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
         ctx.fillRect(x - barWidth / 2, top - 6, barWidth * hpFraction, 4);
       }
 
+      const playerPx = player.x * CANVAS_SCALE;
+      const playerPy = player.y * CANVAS_SCALE;
+      const activeMovement = movementActionRef.current;
+      const jumpOffsetPx =
+        activeMovement && activeMovement.kind === "jump"
+          ? Math.sin(Math.max(0, Math.min(1, (now - activeMovement.startedAt) / activeMovement.durationMs)) * Math.PI) *
+            JUMP_HEIGHT_PX
+          : 0;
+
+      if (jumpOffsetPx > 0.5) {
+        ctx.save();
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = COLOR_VOID;
+        ctx.beginPath();
+        ctx.ellipse(playerPx, playerPy, PLAYER_RADIUS * CANVAS_SCALE * 0.8, PLAYER_RADIUS * CANVAS_SCALE * 0.35, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
       drawActor(
         ctx,
-        player.x * CANVAS_SCALE,
-        player.y * CANVAS_SCALE,
+        playerPx,
+        playerPy - jumpOffsetPx,
         PLAYER_RADIUS * CANVAS_SCALE,
         player.facingDirection.x,
         player.facingDirection.y,
         laneType === "human" ? COLOR_HUMAN : COLOR_BOT,
       );
+      combatEffects.drawEffects(ctx, now);
+      ctx.restore();
     }
 
     function tick(now: number) {
@@ -335,12 +462,24 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
       lastTime = now;
 
       if (phaseRef.current === "COMBAT" && player.isAlive) {
-        if (laneType === "human") {
+        const activeMovement = movementActionRef.current;
+        const hasteMultiplier = now < hasteRef.current.until ? hasteRef.current.multiplier : 1;
+
+        if (activeMovement) {
+          const t = Math.min(1, (now - activeMovement.startedAt) / activeMovement.durationMs);
+          const next = clampToArena(
+            activeMovement.startX + (activeMovement.targetX - activeMovement.startX) * t,
+            activeMovement.startY + (activeMovement.targetY - activeMovement.startY) * t,
+          );
+          player.x = next.x;
+          player.y = next.y;
+          if (t >= 1) movementActionRef.current = null;
+        } else if (laneType === "human") {
           const move = getMovementVector();
           if (move.x !== 0 || move.y !== 0) {
             const next = clampToArena(
-              player.x + move.x * PLAYER_MOVE_SPEED * deltaSeconds,
-              player.y + move.y * PLAYER_MOVE_SPEED * deltaSeconds,
+              player.x + move.x * PLAYER_MOVE_SPEED * hasteMultiplier * deltaSeconds,
+              player.y + move.y * PLAYER_MOVE_SPEED * hasteMultiplier * deltaSeconds,
             );
             player.x = next.x;
             player.y = next.y;
@@ -379,7 +518,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
               const moveLength = Math.hypot(moveX, moveY) || 1;
               const direction = { x: moveX / moveLength, y: moveY / moveLength };
               const speedScale = distancePx < BOT_RETREAT_DISTANCE_PX ? 1 : 0.65;
-              const step = (BOT_MOVE_SPEED_PX / CANVAS_SCALE) * speedScale * deltaSeconds;
+              const step = (BOT_MOVE_SPEED_PX / CANVAS_SCALE) * speedScale * hasteMultiplier * deltaSeconds;
               const next = clampToArena(
                 player.x + direction.x * step,
                 player.y + direction.y * step,
@@ -390,10 +529,6 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
             }
           }
 
-          if (now - lastBotRegenAtRef.current >= 1000) {
-            player.hp = Math.min(player.maxHp, player.hp + BOT_REGEN_PER_SECOND);
-            lastBotRegenAtRef.current = now;
-          }
         }
 
         for (let index = 0; index < cooldownsRef.current.length; index += 1) {
@@ -410,6 +545,13 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
             const hitIds = damageEnemies(ability, { x: player.x, y: player.y });
             if (hitIds.length === 0) continue;
 
+            combatEffects.fireEffect(
+              ability,
+              { x: player.x, y: player.y },
+              enemiesRef.current,
+              player.facingDirection,
+            );
+            applyMovementBehavior(ability, now);
             cooldownsRef.current[slot] = demoCooldownSeconds(ability.cooldownSeconds);
             console.log(
               `[usePlayerCombat] bot auto-fired "${ability.name}" (slot ${slot}) — hit:`,
@@ -445,7 +587,15 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
       if (slot === undefined || cooldownsRef.current[slot] > 0) return;
 
       const ability = equippedRef.current[slot];
+      const now = performance.now();
       const hitIds = damageEnemies(ability, { x: player.x, y: player.y });
+      combatEffects.fireEffect(
+        ability,
+        { x: player.x, y: player.y },
+        enemiesRef.current,
+        player.facingDirection,
+      );
+      applyMovementBehavior(ability, now);
       cooldownsRef.current[slot] = demoCooldownSeconds(ability.cooldownSeconds);
 
       console.log(
@@ -456,7 +606,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [damageEnemies, laneType, player]);
+  }, [combatEffects.fireEffect, damageEnemies, enemiesRef, laneType, player]);
 
   // Temporary death-path helper retained for quick hackathon verification.
   useEffect(() => {

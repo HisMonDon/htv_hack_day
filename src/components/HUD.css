@@ -252,3 +252,18 @@
   height: 100%;
   background: var(--category-color, var(--color-bone-dim));
 }
+
+.hud__ability-cd-text {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-bone-dim);
+  min-width: 2.6rem;
+  text-align: right;
+}
+
+.hud__ability-cd-text--ready {
+  color: var(--category-color, var(--color-bone));
+  font-weight: 700;
+}

@@ -33,7 +33,9 @@ export interface LaneGenerationState {
 export interface UseLaneGenerationResult extends LaneGenerationState {
   // Registered with useMatchClock so the shared clock can gate/advance
   // phases without knowing anything about how this lane generates or picks.
-  adapter: LaneAdapter;
+  // LaneView supplies hasNoEnemies because that belongs to its combat state,
+  // not this generation hook.
+  adapter: Omit<LaneAdapter, "hasNoEnemies">;
   // Human lane: called from PickOverlay's onPick. Bot lane: never called
   // directly — see maybeAutoPickForBot below.
   pick: (index: 0 | 1) => void;
@@ -159,7 +161,7 @@ export function useLaneGeneration(opts: UseLaneGenerationOptions): UseLaneGenera
     [commitPick, kickGeneration],
   );
 
-  const adapter: LaneAdapter = {
+  const adapter: Omit<LaneAdapter, "hasNoEnemies"> = {
     isAlive,
     isGenerationReady: () => stateRef.current.isGenerationReady,
     kickGeneration,

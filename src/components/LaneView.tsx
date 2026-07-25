@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   Ability,
+  Enemy,
   LanePhase,
   LaneState,
   LaneType,
@@ -70,6 +71,15 @@ export function LaneView({
   // lazily, not at call time, so this ordering is safe.
   const isAliveRef = useRef(true);
 
+  // Populated after usePlayerCombat runs below (declared here so
+  // hasNoEnemies/the registerLane effect above it can close over the ref
+  // rather than the value, which would otherwise be stale).
+  const enemiesRef = useRef<Enemy[]>([]);
+  const hasNoEnemies = useCallback(
+    () => enemiesRef.current.length > 0 && enemiesRef.current.every((enemy) => !enemy.alive),
+    [],
+  );
+
   const generation = useLaneGeneration({
     laneType,
     getCurrentLoadout: () => equippedRef.current,
@@ -89,9 +99,9 @@ export function LaneView({
   // same laneType key is idempotent, and useMatchClock guards the
   // one-time "kick off wave 1's generation" call internally.
   useEffect(() => {
-    registerLane(laneType, generation.adapter);
+    registerLane(laneType, { ...generation.adapter, hasNoEnemies });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [laneType, registerLane, generation.adapter]);
+  }, [laneType, registerLane, generation.adapter, hasNoEnemies]);
 
   // Bot lane's auto-pick — the old per-lane timer fired this by watching its
   // own local phase state; now phase is a prop driven by the shared clock,
@@ -117,6 +127,7 @@ export function LaneView({
     canvasRef,
   });
   isAliveRef.current = isAlive;
+  enemiesRef.current = enemies;
 
   // This belongs to the lane rather than LobbyView: a defeated lane freezes
   // while the surviving lane may continue playing.

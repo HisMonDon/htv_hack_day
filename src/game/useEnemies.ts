@@ -136,6 +136,7 @@ function useGeneratedAbility(
   if (now < enemy.abilityReadyAt) return false;
 
   const ability = enemy.ability;
+  const isInvulnerable = !!player.invulnerableUntil && now < player.invulnerableUntil;
   let dx = player.x - enemy.x;
   let dy = player.y - enemy.y;
   let distance = Math.hypot(dx, dy);
@@ -169,7 +170,7 @@ function useGeneratedAbility(
   const canHit = distance <= ability.range + PLAYER_RADIUS;
   if (!canHit && !moved) return false;
 
-  if (canHit) {
+  if (canHit && !isInvulnerable) {
     player.takeDamage(Math.max(1, Math.round(ability.damage * damageMultiplier)));
   }
 
@@ -198,6 +199,7 @@ export function advanceEnemies(
 
   for (const enemy of enemies) {
     if (!enemy.alive) continue;
+    if (enemy.stunnedUntil && now < enemy.stunnedUntil) continue;
 
     const distance = Math.hypot(player.x - enemy.x, player.y - enemy.y);
     const usedAbility = useGeneratedAbility(enemy, player, now, damageMultiplier);
