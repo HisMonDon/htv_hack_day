@@ -18,11 +18,18 @@ export function LaneView({ laneState, onPick }: LaneViewProps) {
   // player/bot) draws into canvasRef via renderPixelArt; input comes from
   // WASD+J/K for the human lane or botController for the bot lane.
 
+  // Bot lane has no player input (spec section 2/5) — its pick is made
+  // automatically by botController, so it never shows a clickable overlay.
+  const showInteractivePickOverlay =
+    laneState.laneType === "human" &&
+    laneState.phase === "pick" &&
+    laneState.pendingAbilityOptions;
+
   return (
     <div>
       <canvas ref={canvasRef} width={480} height={360} />
       <HUD laneState={laneState} />
-      {laneState.phase === "pick" && laneState.pendingAbilityOptions && (
+      {showInteractivePickOverlay && laneState.pendingAbilityOptions && (
         <PickOverlay
           options={laneState.pendingAbilityOptions}
           timeRemainingSeconds={laneState.phaseTimeRemainingSeconds}

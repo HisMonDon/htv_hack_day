@@ -14,6 +14,7 @@ export function LobbyView({ humanLaneState, botLaneState, onHumanPick }: LobbyVi
   return (
     <div>
       <LaneView laneState={humanLaneState} onPick={onHumanPick} />
+      {/* Bot lane's onPick is never invoked by UI — botController picks automatically. */}
       <LaneView laneState={botLaneState} onPick={() => {}} />
     </div>
   );
