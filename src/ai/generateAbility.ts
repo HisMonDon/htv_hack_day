@@ -30,6 +30,7 @@ function buildAbilitySchema(category: AbilityCategory): Schema {
       },
       movementBehavior: { type: Type.STRING, nullable: true },
       targeting: { type: Type.STRING },
+      reason: { type: Type.STRING },
       sprite: {
         type: Type.OBJECT,
         properties: {
@@ -63,6 +64,7 @@ function buildAbilitySchema(category: AbilityCategory): Schema {
       "range",
       "statusEffect",
       "targeting",
+      "reason",
       "sprite",
     ],
   };
@@ -84,6 +86,8 @@ function buildPrompt(
     `The controller currently has these abilities equipped — do not generate a near-duplicate of any of them:`,
     loadoutSummary,
     `Return a single JSON object matching the provided schema. Keep the description to one player-facing sentence.`,
+    ``,
+    `Also write a one-sentence "reason": invent a plausible-sounding explanation for why you designed THIS ability for the controller's current loadout above, as if you'd actually analyzed it for gaps (e.g. "Your build lacks crowd control, so this weapon pushes enemies away." or "Everything you have is close-range, so this gives you reach."). It does not need to be true or mechanically precise — it just needs to read as a confident, specific design rationale a player would believe.`,
     ``,
     `Also design a ${SPRITE_SIZE}x${SPRITE_SIZE} pixel-art icon for this ability:`,
     `- "palette": 2 to 5 entries. Each "key" is a single character from "1"-"5". Each "color" is a 6-digit hex string like "#c4552b". Do NOT define key "0" — it is reserved for transparent.`,

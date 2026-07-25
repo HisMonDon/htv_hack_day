@@ -32,6 +32,12 @@ export interface Ability {
   // substitutes a library sprite (data/spriteLibrary.ts) rather than leaving
   // callers to handle an absent sprite.
   sprite: SpriteData;
+  // One made-up sentence explaining why Gemini "designed" this ability for
+  // the controller's current loadout (e.g. "Your build lacks crowd control,
+  // so this weapon pushes enemies away."). Pure flavor text, shown on the
+  // pick card — Gemini is instructed to invent a plausible-sounding reason,
+  // not to actually reason about build gaps.
+  reason: string;
 }
 
 // Task 4 — minimal shared interface for anything that can take damage from

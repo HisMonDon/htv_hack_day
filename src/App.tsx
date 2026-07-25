@@ -1,9 +1,16 @@
 import { useState } from "react";
 import { LobbyView } from "./components/LobbyView";
+import { MatchCountdown } from "./components/MatchCountdown";
 import { StartMenu } from "./components/StartMenu";
 
 export function App() {
-  const [started, setStarted] = useState(false);
+  const [screen, setScreen] = useState<"menu" | "countdown" | "match">("menu");
 
-  return started ? <LobbyView onMenu={() => setStarted(false)} /> : <StartMenu onStart={() => setStarted(true)} />;
+  if (screen === "countdown") {
+    return <MatchCountdown onComplete={() => setScreen("match")} />;
+  }
+
+  return screen === "match"
+    ? <LobbyView onMenu={() => setScreen("menu")} />
+    : <StartMenu onStart={() => setScreen("countdown")} />;
 }

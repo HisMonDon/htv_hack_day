@@ -7,7 +7,36 @@ import { getFallbackSprite, tierForWave } from "./spriteLibrary";
 // Sprites are attached at construction from the fallback library rather than
 // written into each entry — 30 hand-authored 16x16 grids would be unmaintainable
 // and the library already has one silhouette per category.
-type MockAbility = Omit<Ability, "sprite">;
+// "reason" (the made-up pick-card blurb) is similarly attached at
+// construction — see DEFAULT_REASONS below — rather than hand-written per entry.
+type MockAbility = Omit<Ability, "sprite" | "reason">;
+
+// Flavor text only (see Ability.reason) — a small per-category pool so mock/
+// fallback abilities still show *something* on the pick card without hand
+// writing one for all ~30 entries above.
+const DEFAULT_REASONS: Record<AbilityCategory, string[]> = {
+  OFFENSE: [
+    "Your loadout is light on raw damage, so this hits hard.",
+    "You've been relying on utility — time for something that ends fights.",
+  ],
+  MOBILITY: [
+    "You've got nothing to create distance with, so this gets you out of trouble.",
+    "Your kit is all standing your ground — this adds an escape option.",
+  ],
+  DEFENSE: [
+    "Your build has no way to mitigate incoming damage, so this covers that.",
+    "You're overextended offensively — this buys you breathing room.",
+  ],
+  UTILITY: [
+    "Your loadout lacks crowd control, so this creates space against groups.",
+    "Everything you have is single-target — this helps against a swarm.",
+  ],
+};
+
+function randomDefaultReason(category: AbilityCategory): string {
+  const pool = DEFAULT_REASONS[category];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
 
 const MOCK_ABILITIES_BY_CATEGORY: Record<AbilityCategory, MockAbility[]> = {
   OFFENSE: [
@@ -563,6 +592,7 @@ export function createMockAbility(
   return {
     ...base,
     sprite,
+    reason: randomDefaultReason(category),
     ...overrides,
   };
 }

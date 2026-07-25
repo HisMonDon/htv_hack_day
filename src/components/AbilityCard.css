@@ -74,3 +74,23 @@
 .ability-card__stat-label {
   color: var(--color-bone-dim);
 }
+
+.ability-card__reason {
+  font-size: 0.72rem;
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--color-bone-dim);
+  background: var(--color-void);
+  border-left: 2px solid var(--category-color);
+  margin: 0;
+  padding: 0.4rem 0.55rem;
+}
+
+.ability-card__reason-label {
+  font-family: var(--font-display);
+  font-style: normal;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  color: var(--category-color);
+  margin-right: 0.3rem;
+}
