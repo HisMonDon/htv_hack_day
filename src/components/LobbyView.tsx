@@ -7,25 +7,19 @@ import { createMockEquippedAbilities } from "../data/mockAbilities";
 // starting config. No shared arena, no cross-lane collision or RNG (spec
 // section 1).
 //
-// health/maxHealth/isAlive are static placeholders until the zombie/combat
-// system (not built yet) actually drives them.
+// health/maxHealth/isAlive are now driven internally by LaneView's player
+// entity/combat system (Task 4) — no longer passed in as static placeholders.
 export function LobbyView() {
   return (
     <div>
       <LaneView
         laneType="human"
         initialEquippedAbilities={createMockEquippedAbilities()}
-        health={80}
-        maxHealth={100}
-        isAlive={true}
         survivalTimeSeconds={0}
       />
       <LaneView
         laneType="bot"
         initialEquippedAbilities={createMockEquippedAbilities()}
-        health={80}
-        maxHealth={100}
-        isAlive={true}
         survivalTimeSeconds={0}
       />
     </div>

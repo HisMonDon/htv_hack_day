@@ -3,15 +3,14 @@ import type { Ability, LaneState, LaneType } from "../game/types";
 import { useLaneTimer } from "../game/useLaneTimer";
 import { applyPick } from "../game/applyPick";
 import { decideBotAbilityPick } from "../game/botController";
+import { usePlayerCombat } from "../game/usePlayerCombat";
+import { CANVAS_SCALE } from "../game/arena";
 import { HUD } from "./HUD";
 import { PickOverlay } from "./PickOverlay";
 
 export interface LaneViewProps {
   laneType: LaneType;
   initialEquippedAbilities: [Ability, Ability];
-  health: number;
-  maxHealth: number;
-  isAlive: boolean;
   survivalTimeSeconds: number;
 }
 
@@ -22,9 +21,6 @@ export interface LaneViewProps {
 export function LaneView({
   laneType,
   initialEquippedAbilities,
-  health,
-  maxHealth,
-  isAlive,
   survivalTimeSeconds,
 }: LaneViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -38,8 +34,12 @@ export function LaneView({
   // (Task 2's "currentLoadout must never be stale" requirement).
   const equippedRef = useRef(equippedAbilities);
 
-  const isAliveRef = useRef(isAlive);
-  isAliveRef.current = isAlive;
+  // Task 4 — health/isAlive used to be static placeholder props; they're
+  // now driven by the real player entity/combat system. isAliveRef is
+  // populated below (after usePlayerCombat runs) but declared here so the
+  // useLaneTimer closure below can close over it — the ref is read lazily
+  // by useLaneTimer's interval, not at call time, so this ordering is safe.
+  const isAliveRef = useRef(true);
 
   const timer = useLaneTimer({
     laneType,
@@ -54,11 +54,21 @@ export function LaneView({
     autoPickForBot: laneType === "bot" ? decideBotAbilityPick : undefined,
   });
 
-  // TODO: drive actual combat rendering (zombies, abilities, player/bot)
-  // into canvasRef via renderPixelArt once the zombie/sprite systems land —
-  // out of this task's scope. WASD movement and J/K ability activation are
-  // likewise out of scope here; only pick-phase 1/2 input exists so far,
-  // inside PickOverlay.
+  // Task 4 — player entity, WASD movement (human lane), J/K ability
+  // activation (human lane), and combat resolution against a temporary
+  // dummy target. Renders directly into canvasRef every frame. Only active
+  // during timer.phase === "COMBAT" (enforced inside the hook).
+  const { player, health, maxHealth, isAlive, cooldownsRemaining } = usePlayerCombat({
+    laneType,
+    phase: timer.phase,
+    equippedAbilities,
+    canvasRef,
+  });
+  isAliveRef.current = isAlive;
+
+  // TODO: zombie rendering/spawning (Sulaiman's system, not built yet)
+  // still needs to be drawn into this same canvasRef alongside the player
+  // entity — out of this task's scope.
 
   const { pick, ...timerState } = timer;
   const laneState: LaneState = {
@@ -70,9 +80,15 @@ export function LaneView({
     currentZombieStats: null, // owned by the zombie system, not built yet
     isAlive,
     survivalTimeSeconds,
-    actorPosition: { x: 240, y: 180 },
-    activeZombies: [],
-    abilityCooldownRemainingSeconds: [0, 0],
+    // botController.ts (Darshan's, not mine to touch) assumes canvas pixel
+    // space (BOT_MOVE_SPEED=90, clampPosition to 480x360) — CANVAS_SCALE
+    // converts player.x/y (world units, see game/arena.ts) into that space
+    // so decideBotMovement/decideBotAbilityUse get correctly-scaled input
+    // once wired in.
+    actorPosition: { x: player.x * CANVAS_SCALE, y: player.y * CANVAS_SCALE },
+    activeZombies: [], // owned by the zombie system, not built yet
+    abilityCooldownRemainingSeconds: cooldownsRemaining,
+    player,
   };
 
   const showInteractivePickOverlay =
