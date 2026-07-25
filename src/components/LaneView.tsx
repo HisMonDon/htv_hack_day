@@ -70,6 +70,9 @@ export function LaneView({
     currentZombieStats: null, // owned by the zombie system, not built yet
     isAlive,
     survivalTimeSeconds,
+    actorPosition: { x: 240, y: 180 },
+    activeZombies: [],
+    abilityCooldownRemainingSeconds: [0, 0],
   };
 
   const showInteractivePickOverlay =

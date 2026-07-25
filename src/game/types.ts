@@ -41,6 +41,19 @@ export interface ZombieStatBlock {
   moveSpeed: number;
 }
 
+export interface Position {
+  x: number;
+  y: number;
+}
+
+// A spawned zombie instance. The stat block is shared by the wave; these
+// fields are the per-instance values the combat loop and bot controller need.
+export interface ActiveZombie {
+  id: string;
+  position: Position;
+  health: number;
+}
+
 // Spec 6.1 — pixel-art sprite schema.
 export interface SpriteData {
   width: number;
@@ -96,6 +109,10 @@ export interface LaneState extends LaneTimerState {
   currentZombieStats: ZombieStatBlock | null;
   isAlive: boolean;
   survivalTimeSeconds: number;
+  actorPosition: Position;
+  activeZombies: ActiveZombie[];
+  // Kept in the same order as equippedAbilities. A value of zero means ready.
+  abilityCooldownRemainingSeconds: [number, number];
 }
 
 // Config for a single wave of zombies, independent per lane.
