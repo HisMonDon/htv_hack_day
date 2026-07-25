@@ -1,0 +1,22 @@
+.countdown-overlay { position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; background:rgba(11,11,14,.92); }
+.countdown-overlay__number { color:var(--color-bone); font-family:var(--font-display); font-size:10rem; font-weight:900; pointer-events:none; text-shadow:0 0 40px rgba(var(--glow-human-rgb),.35); user-select:none; animation:countdown-pulse .6s ease-out both; }
+.countdown-overlay__go { color:var(--color-human); font-family:var(--font-display); font-size:12rem; font-weight:900; pointer-events:none; text-shadow:0 0 60px rgba(var(--glow-human-rgb),.6); user-select:none; animation:countdown-pulse .5s ease-out both; }
+@keyframes countdown-pulse { from { opacity:0; transform:scale(1.4); } to { opacity:1; transform:scale(1); } }
+.countdown-overlay__abilities { position:absolute; inset:0; display:flex; align-items:center; justify-content:space-between; padding:2rem 2.5rem; pointer-events:none; }
+.countdown-overlay__side { display:flex; flex-direction:column; gap:1rem; max-width:320px; pointer-events:auto; }
+.countdown-overlay__side-label { margin-bottom:.25rem; font-family:var(--font-display); font-size:1rem; font-weight:700; letter-spacing:.15em; text-transform:uppercase; }
+.countdown-overlay__side-label--human { color:var(--color-human); text-shadow:0 0 12px rgba(var(--glow-human-rgb),.5); }
+.countdown-overlay__side-label--bot { color:var(--color-bot); text-shadow:0 0 12px rgba(var(--glow-bot-rgb),.5); }
+.countdown-overlay__card { display:flex; gap:.75rem; padding:.75rem 1rem; background:var(--color-panel); border:1px solid var(--color-border); border-radius:6px; opacity:0; animation-duration:.5s; animation-timing-function:ease-out; animation-fill-mode:forwards; }
+.countdown-overlay__card--left { animation-name:slide-in-left; }
+.countdown-overlay__card--right { animation-name:slide-in-right; }
+@keyframes slide-in-left { from { opacity:0; transform:translateX(-30px); } to { opacity:1; transform:translateX(0); } }
+@keyframes slide-in-right { from { opacity:0; transform:translateX(30px); } to { opacity:1; transform:translateX(0); } }
+.countdown-overlay__card-sprite { display:flex; flex-shrink:0; align-items:center; justify-content:center; width:48px; height:48px; background:var(--color-panel-raised); border-radius:4px; }
+.countdown-overlay__card-body { display:flex; flex-direction:column; gap:.15rem; min-width:0; }
+.countdown-overlay__card-name { overflow:hidden; color:var(--color-bone); font-family:var(--font-display); font-size:.95rem; font-weight:700; text-overflow:ellipsis; white-space:nowrap; }
+.countdown-overlay__card-category { font-family:var(--font-mono); font-size:.65rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; }
+.countdown-overlay__card-desc { display:-webkit-box; overflow:hidden; color:var(--color-bone-dim); font-size:.75rem; line-height:1.3; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+.countdown-overlay__card-key { display:inline-flex; align-self:flex-start; align-items:center; justify-content:center; margin-top:.25rem; padding:.1rem .45rem; color:var(--color-bone); background:var(--color-void); border:1px solid var(--color-border); border-radius:3px; font-family:var(--font-mono); font-size:.7rem; font-weight:700; letter-spacing:.06em; }
+@media (max-width:720px) { .countdown-overlay__abilities { align-items:flex-end; gap:.75rem; padding:1rem; }.countdown-overlay__side { gap:.5rem; max-width:46%; }.countdown-overlay__card { padding:.5rem; }.countdown-overlay__card-sprite { width:36px; height:36px; }.countdown-overlay__card-desc { display:none; }.countdown-overlay__number { font-size:7rem; }.countdown-overlay__go { font-size:7rem; } }
+@media (prefers-reduced-motion:reduce) { .countdown-overlay__number,.countdown-overlay__go,.countdown-overlay__card { animation:none; opacity:1; } }
