@@ -1,19 +1,23 @@
 .lane {
   --lane-accent: var(--color-human);
+  --lane-glow-rgb: var(--glow-human-rgb);
   display: flex;
   flex-direction: column;
 }
 
 .lane--bot {
   --lane-accent: var(--color-bot);
+  --lane-glow-rgb: var(--glow-bot-rgb);
 }
 
 .lane__arena {
   position: relative;
   display: flex;
   justify-content: center;
-  background: var(--color-void);
+  background-color: var(--color-void);
+  background-image: var(--scanline-texture);
   border-top: 2px solid var(--lane-accent);
+  box-shadow: 0 -6px 16px -8px rgba(var(--lane-glow-rgb), 0.7);
   padding: 0.75rem;
 }
 
@@ -41,6 +45,7 @@
   color: var(--color-danger);
   font-family: var(--font-display);
   font-size: 0.9rem;
+  text-shadow: 0 0 4px rgba(var(--glow-danger-rgb), 0.6);
 }
 
 .lane__status--waiting {
