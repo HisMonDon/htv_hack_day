@@ -3,6 +3,7 @@ import { LaneView } from "./LaneView";
 import { MatchResult } from "./MatchResult";
 import { createMockEquippedAbilities } from "../data/mockAbilities";
 import { useMatchClock } from "../game/useMatchClock";
+import { useZombieWaveGeneration } from "../game/useZombieWaveGeneration";
 import { getStatRangesForWave } from "../game/statRanges";
 import { clampAbilityToRange } from "../game/clamp";
 import type { Ability, LaneType } from "../game/types";
@@ -44,6 +45,8 @@ function ActiveMatch({
 }) {
   const { phase, waveNumber, combatTimeRemaining, pickTimeRemaining, registerLane, notifyGenerationReady } =
     useMatchClock();
+  const { currentPlan: zombieWavePlan, isGeneratingCurrentWave } =
+    useZombieWaveGeneration(waveNumber);
   const handleDefeated = useCallback((laneType: "human" | "bot", defeatedAtWave: number) => {
     onResult({ type: laneType === "human" ? "defeat" : "victory", waveNumber: defeatedAtWave });
   }, [onResult]);
@@ -66,6 +69,8 @@ function ActiveMatch({
           registerLane={registerLane}
           notifyGenerationReady={notifyGenerationReady}
           onDefeated={handleDefeated}
+          zombieWavePlan={zombieWavePlan}
+          isZombieWaveGenerating={isGeneratingCurrentWave}
         />
         <LaneView
           laneType="bot"
@@ -78,6 +83,8 @@ function ActiveMatch({
           registerLane={registerLane}
           notifyGenerationReady={notifyGenerationReady}
           onDefeated={handleDefeated}
+          zombieWavePlan={zombieWavePlan}
+          isZombieWaveGenerating={isGeneratingCurrentWave}
         />
       </div>
     </div>

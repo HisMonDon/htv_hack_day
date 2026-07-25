@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import type { Ability, Enemy, LanePhase, LaneType, PlayerEntity } from "./types";
+import type {
+  Ability,
+  Enemy,
+  LanePhase,
+  LaneType,
+  PlayerEntity,
+  SpriteData,
+  ZombieWavePlan,
+} from "./types";
 import {
   ARENA_HEIGHT,
   ARENA_WIDTH,
@@ -13,6 +21,7 @@ import {
 import { createPlayerEntity } from "./playerEntity";
 import { useEnemies } from "./useEnemies";
 import { usePlayerMovement } from "./usePlayerMovement";
+import { renderPixelArt } from "./renderPixelArt";
 
 const ABILITY_KEYS: Record<string, 0 | 1> = { j: 0, k: 1 };
 const BOT_MOVE_SPEED_PX = 80;
@@ -40,6 +49,88 @@ const COLOR_GRID = "rgba(237, 230, 214, 0.05)";
 const COLOR_TARGET = "#5a5d66";
 
 const GRID_SPACING_PX = CANVAS_SCALE * 2;
+const zombieSpriteCache = new WeakMap<SpriteData, HTMLCanvasElement>();
+
+function cachedZombieSprite(sprite: SpriteData): HTMLCanvasElement {
+  const cached = zombieSpriteCache.get(sprite);
+  if (cached) return cached;
+
+  const scale = 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = sprite.width * scale;
+  canvas.height = sprite.height * scale;
+  const context = canvas.getContext("2d");
+  if (context) renderPixelArt(context, sprite, scale);
+  zombieSpriteCache.set(sprite, canvas);
+  return canvas;
+}
+
+function drawEnemyAbilityEffect(
+  ctx: CanvasRenderingContext2D,
+  enemy: Enemy,
+  now: number,
+): void {
+  const effect = enemy.abilityEffect;
+  if (!effect || effect.endsAt <= now) return;
+
+  const progress = Math.max(0, Math.min(1, (effect.endsAt - now) / (effect.endsAt - effect.startedAt)));
+  const enemyX = enemy.x * CANVAS_SCALE;
+  const enemyY = enemy.y * CANVAS_SCALE;
+  const originX = effect.origin.x * CANVAS_SCALE;
+  const originY = effect.origin.y * CANVAS_SCALE;
+  const targetX = effect.target.x * CANVAS_SCALE;
+  const targetY = effect.target.y * CANVAS_SCALE;
+
+  ctx.save();
+  ctx.globalAlpha = 0.2 + progress * 0.55;
+  ctx.fillStyle = enemy.ability.effectColor;
+  ctx.strokeStyle = enemy.ability.effectColor;
+  ctx.lineWidth = 2;
+
+  if (enemy.ability.attackShape === "BOLT") {
+    ctx.beginPath();
+    ctx.moveTo(enemyX, enemyY);
+    ctx.lineTo(targetX, targetY);
+    ctx.stroke();
+  } else if (enemy.ability.attackShape === "CONE") {
+    const angle = Math.atan2(targetY - enemyY, targetX - enemyX);
+    const length = enemy.ability.range * CANVAS_SCALE;
+    const spread = Math.max(0.35, Math.min(1.1, enemy.ability.areaOfEffect / 3));
+    ctx.beginPath();
+    ctx.moveTo(enemyX, enemyY);
+    ctx.lineTo(
+      enemyX + Math.cos(angle - spread) * length,
+      enemyY + Math.sin(angle - spread) * length,
+    );
+    ctx.lineTo(
+      enemyX + Math.cos(angle + spread) * length,
+      enemyY + Math.sin(angle + spread) * length,
+    );
+    ctx.closePath();
+    ctx.fill();
+  } else if (enemy.ability.attackShape === "AURA") {
+    ctx.beginPath();
+    ctx.arc(enemyX, enemyY, enemy.ability.areaOfEffect * CANVAS_SCALE, 0, Math.PI * 2);
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.arc(targetX, targetY, Math.max(8, enemy.ability.areaOfEffect * CANVAS_SCALE), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  if (enemy.ability.movementAction === "BLINK") {
+    ctx.beginPath();
+    ctx.arc(originX, originY, 12 + (1 - progress) * 12, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (enemy.ability.movementAction === "DASH") {
+    ctx.beginPath();
+    ctx.moveTo(originX, originY);
+    ctx.lineTo(enemyX, enemyY);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
 
 // Sparse floor grid — damaged-cabinet substrate, drawn under everything.
 // Cheap enough (a few dozen strokes) that caching it to an offscreen canvas
@@ -129,7 +220,7 @@ function drawTarget(
 export interface UsePlayerCombatOptions {
   laneType: LaneType;
   phase: LanePhase;
-  waveNumber: number;
+  zombieWavePlan: ZombieWavePlan;
   equippedAbilities: [Ability, Ability];
   canvasRef: RefObject<HTMLCanvasElement>;
 }
@@ -141,13 +232,12 @@ export interface UsePlayerCombatResult {
   isAlive: boolean;
   cooldownsRemaining: [number, number];
   enemies: Enemy[];
-  activeSpecial: import("./types").ZombieSpecial | null;
 }
 
 // Owns one lane's player, ability cooldowns, enemy combat, and canvas render
 // loop. Match timing and ability generation remain outside this hook.
 export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatResult {
-  const { laneType, phase, waveNumber, equippedAbilities, canvasRef } = opts;
+  const { laneType, phase, zombieWavePlan, equippedAbilities, canvasRef } = opts;
 
   const playerRef = useRef<PlayerEntity | null>(null);
   if (playerRef.current === null) {
@@ -155,10 +245,10 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
   }
   const player = playerRef.current;
 
-  const { enemies, enemiesRef, damageEnemies, activeSpecial } = useEnemies({
+  const { enemies, enemiesRef, damageEnemies } = useEnemies({
     laneType,
     phase,
-    waveNumber,
+    wavePlan: zombieWavePlan,
     player,
   });
 
@@ -203,26 +293,30 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
       const now = performance.now();
       for (const enemy of enemiesRef.current) {
         if (!enemy.alive) continue;
+        drawEnemyAbilityEffect(ctx, enemy, now);
+      }
+
+      for (const enemy of enemiesRef.current) {
+        if (!enemy.alive) continue;
         const x = enemy.x * CANVAS_SCALE;
         const y = enemy.y * CANVAS_SCALE;
-        const radius = enemy.radius * CANVAS_SCALE;
+        const sprite = cachedZombieSprite(enemy.sprite);
+        const left = Math.round(x - sprite.width / 2);
+        const top = Math.round(y - sprite.height / 2);
+        ctx.drawImage(sprite, left, top);
 
-        ctx.fillStyle = enemy.flashUntil && enemy.flashUntil > now ? "#ffffff" : "#77a83b";
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
-        if (enemy.special?.kind === "PULSE" && enemy.flashUntil && enemy.flashUntil > now) { ctx.strokeStyle="#c084fc"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,radius*2.3,0,Math.PI*2); ctx.stroke(); }
+        if (enemy.flashUntil && enemy.flashUntil > now) {
+          ctx.strokeStyle = COLOR_BONE;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(left - 1, top - 1, sprite.width + 2, sprite.height + 2);
+        }
 
-        ctx.fillStyle = "#18210f";
-        ctx.fillRect(x - radius * 0.45, y - radius * 0.25, radius * 0.25, radius * 0.25);
-        ctx.fillRect(x + radius * 0.2, y - radius * 0.25, radius * 0.25, radius * 0.25);
-
-        const barWidth = Math.max(18, radius * 2);
+        const barWidth = Math.max(20, sprite.width);
         const hpFraction = Math.max(0, Math.min(1, enemy.hp / enemy.maxHp));
         ctx.fillStyle = "#2a1111";
-        ctx.fillRect(x - barWidth / 2, y - radius - 8, barWidth, 4);
+        ctx.fillRect(x - barWidth / 2, top - 6, barWidth, 4);
         ctx.fillStyle = "#e33e3e";
-        ctx.fillRect(x - barWidth / 2, y - radius - 8, barWidth * hpFraction, 4);
+        ctx.fillRect(x - barWidth / 2, top - 6, barWidth * hpFraction, 4);
       }
 
       drawActor(
@@ -388,6 +482,5 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
     isAlive: snapshot.isAlive,
     cooldownsRemaining: cooldownsRef.current,
     enemies,
-    activeSpecial,
   };
 }

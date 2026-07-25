@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { Ability, LanePhase, LaneState, LaneType } from "../game/types";
+import type {
+  Ability,
+  LanePhase,
+  LaneState,
+  LaneType,
+  ZombieWavePlan,
+} from "../game/types";
 import { useLaneGeneration } from "../game/useLaneGeneration";
 import type { LaneAdapter } from "../game/useMatchClock";
 import { applyPick } from "../game/applyPick";
@@ -24,6 +30,8 @@ export interface LaneViewProps {
   registerLane: (laneType: LaneType, adapter: LaneAdapter) => void;
   notifyGenerationReady: () => void;
   onDefeated: (laneType: LaneType, waveNumber: number) => void;
+  zombieWavePlan: ZombieWavePlan;
+  isZombieWaveGenerating: boolean;
 }
 
 // Renders and drives one lane (human or bot). Reads the shared match clock
@@ -41,6 +49,8 @@ export function LaneView({
   registerLane,
   notifyGenerationReady,
   onDefeated,
+  zombieWavePlan,
+  isZombieWaveGenerating,
 }: LaneViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -99,10 +109,10 @@ export function LaneView({
 
   // Per-lane player movement, J/K abilities, zombie combat, and canvas
   // rendering. The shared match clock remains read-only here.
-  const { player, health, maxHealth, isAlive, cooldownsRemaining, enemies, activeSpecial } = usePlayerCombat({
+  const { player, health, maxHealth, isAlive, cooldownsRemaining, enemies } = usePlayerCombat({
     laneType,
     phase: matchPhase,
-    waveNumber: matchWaveNumber,
+    zombieWavePlan,
     equippedAbilities,
     canvasRef,
   });
@@ -161,7 +171,7 @@ export function LaneView({
     health,
     maxHealth,
     equippedAbilities,
-    currentZombieStats: null, // MVP enemies use deterministic per-wave stats.
+    currentZombieWave: zombieWavePlan,
     isAlive,
     survivalTimeSeconds: liveSurvivalSeconds,
     // botController.ts (Darshan's, not mine to touch) assumes canvas pixel
@@ -201,7 +211,18 @@ export function LaneView({
       <HUD laneState={laneState} />
       <div className="lane__arena">
         <canvas className="lane__canvas" ref={canvasRef} width={480} height={360} />
-        {activeSpecial && <p className="lane__mutant-trait">ZOMBIE ABILITY <strong>{activeSpecial.name}</strong> · {activeSpecial.kind}</p>}
+        <aside className="lane__mutant-roster" aria-label="Current AI-generated zombie types">
+          <span className="lane__mutant-kicker">
+            {isZombieWaveGenerating ? "MUTATING LIVE" : "WAVE MUTATIONS"}
+          </span>
+          <strong className="lane__mutant-theme">{zombieWavePlan.theme}</strong>
+          {zombieWavePlan.archetypes.map((archetype) => (
+            <span className="lane__mutant-type" key={archetype.id}>
+              {archetype.name}
+              <small>{archetype.ability.name}</small>
+            </span>
+          ))}
+        </aside>
         {!isAlive && (
           <p className="lane__status lane__status--defeated">
             DEFEATED — WAVE {display.waveNumber}

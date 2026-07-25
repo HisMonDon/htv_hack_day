@@ -58,39 +58,73 @@ export interface PlayerEntity extends Damageable {
   facingDirection: { x: number; y: number }; // normalized
 }
 
+export type ZombieAttackShape = "CONTACT" | "BOLT" | "CONE" | "AURA";
+export type ZombieMovementAction = "NONE" | "DASH" | "BLINK";
+
+export interface ZombieAbility {
+  name: string;
+  description: string;
+  attackShape: ZombieAttackShape;
+  movementAction: ZombieMovementAction;
+  damage: number;
+  cooldownSeconds: number;
+  range: number;
+  areaOfEffect: number;
+  durationSeconds: number;
+  projectileSpeed: number;
+  movementMultiplier: number;
+  movementDistance: number;
+  effectColor: string;
+}
+
+export interface ZombieArchetype {
+  id: string;
+  name: string;
+  description: string;
+  maxHealth: number;
+  moveSpeed: number;
+  spawnWeight: number;
+  ability: ZombieAbility;
+  sprite: SpriteData;
+}
+
+export type ZombieWaveSource = "gemini" | "cache" | "fallback";
+
+export interface ZombieWavePlan {
+  waveNumber: number;
+  theme: string;
+  archetypes: ZombieArchetype[];
+  source: ZombieWaveSource;
+}
+
+export interface EnemyAbilityEffect {
+  origin: Position;
+  target: Position;
+  startedAt: number;
+  endsAt: number;
+}
+
 export interface Enemy {
   id: string;
+  archetypeId: string;
+  typeName: string;
   x: number;
   y: number;
   radius: number;
   hp: number;
   maxHp: number;
   speed: number;
-  damage: number;
-  attackRange: number;
-  attackCooldownMs: number;
-  lastAttackAt: number;
+  ability: ZombieAbility;
+  sprite: SpriteData;
+  abilityReadyAt: number;
+  abilityEffect?: EnemyAbilityEffect;
   alive: boolean;
   kind: "zombie";
   flashUntil?: number;
-  special?: ZombieSpecial;
-  lastSpecialAt?: number;
 }
 
-export interface ZombieSpecial { name: string; kind: "PULSE" | "SPRINT" | "FRENZY"; cooldownSeconds: number; damage: number; range: number; }
-
-export type ZombieAttackType = "MELEE" | "RANGED" | "AURA";
 
 // Spec 4.1 — zombie stat schema, generated once per wave per lane.
-export interface ZombieStatBlock {
-  zombieType: string;
-  attackType: ZombieAttackType;
-  damage: number;
-  attackCooldownSeconds: number;
-  range: number;
-  moveSpeed: number;
-}
-
 export interface Position {
   x: number;
   y: number;
@@ -159,7 +193,7 @@ export interface LaneState extends LaneTimerState {
   health: number;
   maxHealth: number;
   equippedAbilities: [Ability, Ability];
-  currentZombieStats: ZombieStatBlock | null;
+  currentZombieWave: ZombieWavePlan | null;
   isAlive: boolean;
   survivalTimeSeconds: number;
   actorPosition: Position;
@@ -172,13 +206,4 @@ export interface LaneState extends LaneTimerState {
   // decideBotAbilityUse) can read player position/hp once implemented,
   // without needing any signature change to that file.
   player: PlayerEntity;
-}
-
-// Config for a single wave of zombies, independent per lane.
-export interface WaveConfig {
-  waveNumber: number;
-  laneType: LaneType;
-  zombieCount: number;
-  spawnIntervalSeconds: number;
-  statBlock: ZombieStatBlock;
 }
