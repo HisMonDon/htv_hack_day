@@ -4,7 +4,7 @@ import { GoogleGenAI } from "@google/genai";
 // variable — never hardcode it, never log it or the raw response body.
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
 
-export const GEMINI_MODEL = "gemini-2.5-flash";
+export const GEMINI_MODEL = "gemini-flash-latest";
 
 let client: GoogleGenAI | null = null;
 
@@ -20,26 +20,27 @@ function getClient(): GoogleGenAI {
 
 // Generic structured-output call used by generateAbility() and
 // generateZombieStats(). responseSchema follows Gemini's structured-output
-// schema format, matching the Ability / ZombieStatBlock shapes in game/types.ts.
-// Callers must still validate + clamp the parsed result — this wrapper does
-// not do that.
+// schema format (see @google/genai's `Type` enum), matching the Ability /
+// ZombieStatBlock shapes in game/types.ts. Callers must still validate +
+// clamp the parsed result — this wrapper does not do that.
 export async function generateStructuredJSON<T>(
   prompt: string,
   responseSchema: object,
 ): Promise<T> {
-  // TODO: wire up once an API key is available and real prompt content is
-  // written (section 8 excludes real prompt content from this scaffold).
-  //
-  // const genAI = getClient();
-  // const response = await genAI.models.generateContent({
-  //   model: GEMINI_MODEL,
-  //   contents: prompt,
-  //   config: {
-  //     responseMimeType: "application/json",
-  //     responseSchema,
-  //   },
-  // });
-  // return JSON.parse(response.text) as T;
+  const genAI = getClient();
+  const response = await genAI.models.generateContent({
+    model: GEMINI_MODEL,
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema,
+    },
+  });
 
-  throw new Error("generateStructuredJSON not implemented");
+  const text = response.text;
+  if (!text) {
+    throw new Error("Gemini returned an empty response");
+  }
+
+  return JSON.parse(text) as T;
 }
