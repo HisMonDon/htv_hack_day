@@ -31,7 +31,11 @@
 .lobby__lanes {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, 1fr) rather than 1fr: a bare 1fr track floors at min-content,
+     so a long generated ability name in one lane's HUD widened that lane and
+     pushed the page into horizontal overflow. The two lanes must stay
+     symmetrical regardless of what Gemini names an ability. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .lobby__lanes > * + * {

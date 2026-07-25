@@ -88,6 +88,9 @@
 
 .hud__ability {
   flex: 1;
+  /* Lets the ability name's text-overflow: ellipsis actually engage instead
+     of the chip refusing to shrink below its min-content width. */
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -105,6 +108,13 @@
   filter: none;
   opacity: 1;
   box-shadow: 0 0 10px rgba(var(--lane-glow-rgb), 0.55);
+}
+
+.hud__ability-sprite {
+  image-rendering: pixelated;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
 }
 
 .hud__ability-key {

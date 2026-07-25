@@ -15,6 +15,25 @@
   background: var(--color-panel);
 }
 
+.ability-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  /* Two cards share one lane's width, so at compact viewports the sprite and
+     the category tag cannot both fit on one row — the tag drops beneath the
+     sprite instead of overflowing the card border. */
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.ability-card__sprite {
+  image-rendering: pixelated;
+  flex-shrink: 0;
+  background: var(--color-void);
+  border: 1px solid var(--color-border);
+  padding: 2px;
+}
+
 .ability-card__tag {
   align-self: flex-start;
   font-family: var(--font-display);

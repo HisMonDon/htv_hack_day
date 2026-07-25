@@ -1,7 +1,19 @@
 import { LaneView } from "./LaneView";
 import { createMockEquippedAbilities } from "../data/mockAbilities";
 import { useMatchClock } from "../game/useMatchClock";
+import { getStatRangesForWave } from "../game/statRanges";
+import { clampAbilityToRange } from "../game/clamp";
+import type { Ability, LaneType } from "../game/types";
 import "./LobbyView.css";
+
+// Starting loadouts are pre-authored mock content, so they get the same wave-1
+// clamp every generated ability gets. Without this the match opens with
+// whatever raw numbers the mock table happens to carry.
+function createStartingLoadout(laneType: LaneType): [Ability, Ability] {
+  const ranges = getStatRangesForWave(1, laneType);
+  const [first, second] = createMockEquippedAbilities();
+  return [clampAbilityToRange(first, ranges), clampAbilityToRange(second, ranges)];
+}
 
 // Top-level split-screen view: human lane on the left, bot lane on the
 // right. LobbyView owns the single shared match clock (Task 5) so both
@@ -24,7 +36,7 @@ export function LobbyView() {
       <div className="lobby__lanes">
         <LaneView
           laneType="human"
-          initialEquippedAbilities={createMockEquippedAbilities()}
+          initialEquippedAbilities={createStartingLoadout("human")}
           survivalTimeSeconds={0}
           matchPhase={phase}
           matchWaveNumber={waveNumber}
@@ -35,7 +47,7 @@ export function LobbyView() {
         />
         <LaneView
           laneType="bot"
-          initialEquippedAbilities={createMockEquippedAbilities()}
+          initialEquippedAbilities={createStartingLoadout("bot")}
           survivalTimeSeconds={0}
           matchPhase={phase}
           matchWaveNumber={waveNumber}

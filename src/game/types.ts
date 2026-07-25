@@ -27,6 +27,11 @@ export interface Ability {
   statusEffect: StatusEffect;
   movementBehavior: string | null;
   targeting: string;
+  // Spec 6.1 — the ability's icon, generated alongside its mechanics and
+  // validated by game/spriteValidation.ts. Never null: generation failure
+  // substitutes a library sprite (data/spriteLibrary.ts) rather than leaving
+  // callers to handle an absent sprite.
+  sprite: SpriteData;
 }
 
 // Task 4 — minimal shared interface for anything that can take damage from

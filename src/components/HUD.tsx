@@ -1,5 +1,6 @@
 import type { LaneState } from "../game/types";
 import { categoryColorVar } from "./categoryColor";
+import { SpriteCanvas } from "./SpriteCanvas";
 import "./HUD.css";
 
 export interface HUDProps {
@@ -52,6 +53,7 @@ export function HUD({ laneState }: HUDProps) {
               className={`hud__ability ${isReady ? "hud__ability--ready" : ""}`}
               style={{ ["--category-color" as string]: categoryColor }}
             >
+              <SpriteCanvas sprite={ability.sprite} scale={1} className="hud__ability-sprite" />
               <span className="hud__ability-key">{abilityKeys[index]}</span>
               <div className="hud__ability-info">
                 <div className="hud__ability-name">{ability.name}</div>
