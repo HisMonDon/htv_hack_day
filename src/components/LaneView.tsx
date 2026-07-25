@@ -1,39 +1,91 @@
-import { useRef } from "react";
-import type { LaneState } from "../game/types";
+import { useRef, useState } from "react";
+import type { Ability, LaneState, LaneType } from "../game/types";
+import { useLaneTimer } from "../game/useLaneTimer";
+import { applyPick } from "../game/applyPick";
+import { decideBotAbilityPick } from "../game/botController";
 import { HUD } from "./HUD";
 import { PickOverlay } from "./PickOverlay";
 
 export interface LaneViewProps {
-  laneState: LaneState;
-  onPick: (index: 0 | 1) => void;
+  laneType: LaneType;
+  initialEquippedAbilities: [Ability, Ability];
+  health: number;
+  maxHealth: number;
+  isAlive: boolean;
+  survivalTimeSeconds: number;
 }
 
-// Renders one lane (human or bot). The two lanes never share state — each
-// LaneView instance owns its own canvas and reads only its own LaneState.
-export function LaneView({ laneState, onPick }: LaneViewProps) {
+// Renders and drives one lane (human or bot). Owns its own wave/pick timer
+// instance (game/useLaneTimer.ts) and its own equipped-abilities state — the
+// two LaneView instances never share a clock or touch each other's state
+// (spec section 1 / Task 1.1).
+export function LaneView({
+  laneType,
+  initialEquippedAbilities,
+  health,
+  maxHealth,
+  isAlive,
+  survivalTimeSeconds,
+}: LaneViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // TODO: drive the 15s combat / 5s pick loop (spec section 1) for this lane
-  // independently of the other lane. Combat rendering (zombies, abilities,
-  // player/bot) draws into canvasRef via renderPixelArt; input comes from
-  // WASD+J/K for the human lane or botController for the bot lane.
+  const [equippedAbilities, setEquippedAbilities] = useState<[Ability, Ability]>(
+    initialEquippedAbilities,
+  );
+  // Mutated synchronously alongside setEquippedAbilities (not via a
+  // useEffect mirror) so a generation kicked off immediately after a pick
+  // reads the just-picked loadout, never a stale one from before the pick
+  // (Task 2's "currentLoadout must never be stale" requirement).
+  const equippedRef = useRef(equippedAbilities);
 
-  // Bot lane has no player input (spec section 2/5) — its pick is made
-  // automatically by botController, so it never shows a clickable overlay.
+  const isAliveRef = useRef(isAlive);
+  isAliveRef.current = isAlive;
+
+  const timer = useLaneTimer({
+    laneType,
+    getCurrentLoadout: () => equippedRef.current,
+    onApplyPick: (picked) => {
+      const next = applyPick(equippedRef.current, picked);
+      equippedRef.current = next;
+      setEquippedAbilities(next);
+    },
+    isAlive: () => isAliveRef.current,
+    // Bot lane's pick is decided by botController, never by human input.
+    autoPickForBot: laneType === "bot" ? decideBotAbilityPick : undefined,
+  });
+
+  // TODO: drive actual combat rendering (zombies, abilities, player/bot)
+  // into canvasRef via renderPixelArt once the zombie/sprite systems land —
+  // out of this task's scope. WASD movement and J/K ability activation are
+  // likewise out of scope here; only pick-phase 1/2 input exists so far,
+  // inside PickOverlay.
+
+  const { pick, ...timerState } = timer;
+  const laneState: LaneState = {
+    laneType,
+    ...timerState,
+    health,
+    maxHealth,
+    equippedAbilities,
+    currentZombieStats: null, // owned by the zombie system, not built yet
+    isAlive,
+    survivalTimeSeconds,
+  };
+
   const showInteractivePickOverlay =
-    laneState.laneType === "human" &&
-    laneState.phase === "pick" &&
-    laneState.pendingAbilityOptions;
+    laneType === "human" && timer.phase === "PICKING" && timer.pendingOptions !== null;
 
   return (
     <div>
       <canvas ref={canvasRef} width={480} height={360} />
       <HUD laneState={laneState} />
-      {showInteractivePickOverlay && laneState.pendingAbilityOptions && (
+      {!isAlive && <p>Defeated at wave {timer.waveNumber}</p>}
+      {isAlive && timer.phase === "PAUSED_GENERATING" && <p>Waiting on ability generation…</p>}
+      {isAlive && showInteractivePickOverlay && timer.pendingOptions && (
         <PickOverlay
-          options={laneState.pendingAbilityOptions}
-          timeRemainingSeconds={laneState.phaseTimeRemainingSeconds}
-          onPick={onPick}
+          options={timer.pendingOptions}
+          timeRemainingSeconds={timer.pickTimeRemaining}
+          onPick={pick}
         />
       )}
     </div>

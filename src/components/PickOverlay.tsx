@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { Ability } from "../game/types";
 import { AbilityCard } from "./AbilityCard";
 
@@ -7,9 +8,21 @@ export interface PickOverlayProps {
   onPick: (index: 0 | 1) => void;
 }
 
+// Timeout auto-pick (index 0 when the 5s window expires) is handled by
+// game/useLaneTimer.ts, not here — this component only owns rendering the
+// two options and human input (click or "1"/"2" keys). It's only ever
+// mounted for the human lane (see LaneView), so the keydown listener never
+// exists for the bot lane.
 export function PickOverlay({ options, timeRemainingSeconds, onPick }: PickOverlayProps) {
-  // TODO: 5-second pick window (spec section 1, step 4); auto-pick index 0
-  // when timeRemainingSeconds hits 0. Human lane only listens for "1"/"2".
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "1") onPick(0);
+      else if (event.key === "2") onPick(1);
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onPick]);
+
   return (
     <div>
       <p>Choose an ability ({timeRemainingSeconds}s)</p>

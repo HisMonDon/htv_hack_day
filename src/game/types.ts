@@ -68,17 +68,32 @@ export interface AbilityStatRanges {
   knockback?: StatRange;
 }
 
-// Per-lane runtime state driving the combat/pick loop described in section 1.
-export interface LaneState {
-  laneType: LaneType;
+export type LanePhase = "COMBAT" | "PAUSED_GENERATING" | "PICKING" | "TRANSITIONING";
+
+// The wave/pick timer's own state (Task 1.1), independent per lane
+// instance. Kept as its own type — not just fields on LaneState — so
+// modules that only care about the timer (e.g. a zombie spawner keying off
+// phase/waveNumber) can depend on this exact shape without pulling in the
+// rest of LaneState. Owned by game/useLaneTimer.ts.
+export interface LaneTimerState {
+  phase: LanePhase;
   waveNumber: number;
+  combatTimeRemaining: number; // seconds, counts down from 15
+  pickTimeRemaining: number; // seconds, counts down from 5, only relevant in PICKING
+  pendingOptions: [Ability, Ability] | null; // pre-generated options for the NEXT pick
+  isGenerationReady: boolean; // true once pendingOptions is populated for the upcoming pick
+}
+
+// Full per-lane runtime snapshot: the timer state plus everything else a
+// lane needs to render (health, loadout, zombie stats). Combat/HP fields are
+// owned by whichever system tracks the actual fight (zombie system, not yet
+// built); LaneTimerState fields are owned by game/useLaneTimer.ts.
+export interface LaneState extends LaneTimerState {
+  laneType: LaneType;
   health: number;
   maxHealth: number;
   equippedAbilities: [Ability, Ability];
-  pendingAbilityOptions: [Ability, Ability] | null;
   currentZombieStats: ZombieStatBlock | null;
-  phase: "combat" | "pick";
-  phaseTimeRemainingSeconds: number;
   isAlive: boolean;
   survivalTimeSeconds: number;
 }

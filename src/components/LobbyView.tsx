@@ -1,21 +1,33 @@
 import { LaneView } from "./LaneView";
-import type { LaneState } from "../game/types";
-
-export interface LobbyViewProps {
-  humanLaneState: LaneState;
-  botLaneState: LaneState;
-  onHumanPick: (index: 0 | 1) => void;
-}
+import { createMockEquippedAbilities } from "../data/mockAbilities";
 
 // Top-level split-screen view: human lane on the left, bot lane on the
-// right. The two LaneView instances run completely independently — no
-// shared arena, no cross-lane collision or RNG (spec section 1).
-export function LobbyView({ humanLaneState, botLaneState, onHumanPick }: LobbyViewProps) {
+// right. Each LaneView instance owns its own timer/state internally (Task
+// 1.1) — this component's only job is layout and seeding each lane's
+// starting config. No shared arena, no cross-lane collision or RNG (spec
+// section 1).
+//
+// health/maxHealth/isAlive are static placeholders until the zombie/combat
+// system (not built yet) actually drives them.
+export function LobbyView() {
   return (
     <div>
-      <LaneView laneState={humanLaneState} onPick={onHumanPick} />
-      {/* Bot lane's onPick is never invoked by UI — botController picks automatically. */}
-      <LaneView laneState={botLaneState} onPick={() => {}} />
+      <LaneView
+        laneType="human"
+        initialEquippedAbilities={createMockEquippedAbilities()}
+        health={80}
+        maxHealth={100}
+        isAlive={true}
+        survivalTimeSeconds={0}
+      />
+      <LaneView
+        laneType="bot"
+        initialEquippedAbilities={createMockEquippedAbilities()}
+        health={80}
+        maxHealth={100}
+        isAlive={true}
+        survivalTimeSeconds={0}
+      />
     </div>
   );
 }
