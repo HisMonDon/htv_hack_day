@@ -23,9 +23,52 @@ const BOT_EDGE_BIAS_PX = 40;
 const BOT_REGEN_PER_SECOND = 3;
 const DEMO_MIN_COOLDOWN_SECONDS = 0.6;
 const DEMO_MAX_COOLDOWN_SECONDS = 1.8;
+const JUMP_DURATION_MS = 420;
+const DASH_DURATION_MS = 220;
+const JUMP_HEIGHT_PX = 26;
 
 function demoCooldownSeconds(value: number): number {
   return Math.max(DEMO_MIN_COOLDOWN_SECONDS, Math.min(DEMO_MAX_COOLDOWN_SECONDS, value));
+}
+
+// A forced repositioning in progress — overrides normal movement control
+// (human input / bot AI) for its duration. "jump" additionally grants brief
+// invulnerability and a visual arc so it reads as jumping OVER zombies
+// rather than just a fast walk.
+interface MovementAction {
+  kind: "dash" | "jump";
+  startX: number;
+  startY: number;
+  targetX: number;
+  targetY: number;
+  startedAt: number;
+  durationMs: number;
+}
+
+// Ability.movementBehavior/name/description say things like "dash", "blink",
+// "teleport", "jump", "leap" — until now nothing actually moved the player
+// when one of these fired. This turns that text into a real position change.
+function movementKindFor(ability: Ability): "teleport" | "jump" | "dash" | null {
+  const haystack = `${ability.movementBehavior ?? ""} ${ability.name} ${ability.description}`.toLowerCase();
+  if (haystack.includes("teleport") || haystack.includes("blink")) return "teleport";
+  if (haystack.includes("jump") || haystack.includes("leap") || haystack.includes("launch")) return "jump";
+  if (
+    haystack.includes("dash") ||
+    haystack.includes("sprint") ||
+    haystack.includes("roll") ||
+    haystack.includes("slide") ||
+    haystack.includes("charge")
+  )
+    return "dash";
+  return null;
+}
+
+function hasteFor(ability: Ability): { multiplier: number; durationMs: number } | null {
+  const type = (ability.statusEffect.type ?? "").toLowerCase();
+  if (!["haste", "speed", "hasten", "quicken"].some((k) => type.includes(k))) return null;
+  const magnitude = Math.max(0, Math.min(2, ability.statusEffect.magnitude ?? 0.3));
+  const durationSeconds = ability.statusEffect.durationSeconds ?? 3;
+  return { multiplier: 1 + magnitude, durationMs: durationSeconds * 1000 };
 }
 
 // Arena palette — deliberately duplicated from styles/theme.css rather than

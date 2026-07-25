@@ -56,6 +56,10 @@ export interface PlayerEntity extends Damageable {
   maxHp: number;
   isAlive: boolean;
   facingDirection: { x: number; y: number }; // normalized
+  // Set by usePlayerCombat.ts while a jump/dash/teleport is resolving —
+  // useEnemies.ts's advanceEnemies skips zombie contact damage during it, so
+  // a jump actually reads as "jumping over" rather than just a fast walk.
+  invulnerableUntil?: number;
 }
 
 export interface Enemy {

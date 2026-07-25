@@ -71,7 +71,8 @@ export function advanceEnemies(
     const distance = Math.hypot(dx, dy);
 
     if (distance <= enemy.attackRange + PLAYER_RADIUS) {
-      if (now - enemy.lastAttackAt >= enemy.attackCooldownMs) {
+      const isInvulnerable = !!player.invulnerableUntil && now < player.invulnerableUntil;
+      if (!isInvulnerable && now - enemy.lastAttackAt >= enemy.attackCooldownMs) {
         player.takeDamage(Math.max(1, Math.round(enemy.damage * damageMultiplier)));
         enemy.lastAttackAt = now;
       }
