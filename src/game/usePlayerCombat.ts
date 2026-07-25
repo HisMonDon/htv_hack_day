@@ -141,6 +141,7 @@ export interface UsePlayerCombatResult {
   isAlive: boolean;
   cooldownsRemaining: [number, number];
   enemies: Enemy[];
+  activeSpecial: import("./types").ZombieSpecial | null;
 }
 
 // Owns one lane's player, ability cooldowns, enemy combat, and canvas render
@@ -154,7 +155,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
   }
   const player = playerRef.current;
 
-  const { enemies, enemiesRef, damageEnemies } = useEnemies({
+  const { enemies, enemiesRef, damageEnemies, activeSpecial } = useEnemies({
     laneType,
     phase,
     waveNumber,
@@ -210,6 +211,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fill();
+        if (enemy.special?.kind === "PULSE" && enemy.flashUntil && enemy.flashUntil > now) { ctx.strokeStyle="#c084fc"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,radius*2.3,0,Math.PI*2); ctx.stroke(); }
 
         ctx.fillStyle = "#18210f";
         ctx.fillRect(x - radius * 0.45, y - radius * 0.25, radius * 0.25, radius * 0.25);
@@ -386,5 +388,6 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
     isAlive: snapshot.isAlive,
     cooldownsRemaining: cooldownsRef.current,
     enemies,
+    activeSpecial,
   };
 }

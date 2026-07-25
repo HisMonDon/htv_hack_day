@@ -73,7 +73,11 @@ export interface Enemy {
   alive: boolean;
   kind: "zombie";
   flashUntil?: number;
+  special?: ZombieSpecial;
+  lastSpecialAt?: number;
 }
+
+export interface ZombieSpecial { name: string; kind: "PULSE" | "SPRINT" | "FRENZY"; cooldownSeconds: number; damage: number; range: number; }
 
 export type ZombieAttackType = "MELEE" | "RANGED" | "AURA";
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
-import type { Ability, Enemy, LanePhase, LaneType, PlayerEntity, Position } from "./types";
+import type { Ability, Enemy, LanePhase, LaneType, PlayerEntity, Position, ZombieSpecial } from "./types";
+import { fallbackZombieSpecial, generateZombieSpecial } from "../ai/generateZombieSpecial";
 import { ARENA_HEIGHT, ARENA_WIDTH, CANVAS_SCALE, PLAYER_RADIUS } from "./arena";
 
 const ENEMY_RADIUS = 0.45;
@@ -26,7 +27,7 @@ function edgePosition(index: number, waveNumber: number): Position {
   return { x: ENEMY_RADIUS, y };
 }
 
-export function createWaveEnemies(laneType: LaneType, waveNumber: number): Enemy[] {
+export function createWaveEnemies(laneType: LaneType, waveNumber: number, special?: ZombieSpecial): Enemy[] {
   const safeWave = Math.max(1, Math.floor(waveNumber));
   const count = Math.min(24, 3 + Math.floor(safeWave * 1.5));
   const hp = Math.min(180, 35 + safeWave * 8);
@@ -49,6 +50,7 @@ export function createWaveEnemies(laneType: LaneType, waveNumber: number): Enemy
       lastAttackAt: 0,
       alive: true,
       kind: "zombie",
+      special, lastSpecialAt: 0,
     };
   });
 }
@@ -71,14 +73,16 @@ export function advanceEnemies(
 
     if (distance <= enemy.attackRange + PLAYER_RADIUS) {
       if (now - enemy.lastAttackAt >= enemy.attackCooldownMs) {
-        player.takeDamage(Math.max(1, Math.round(enemy.damage * damageMultiplier)));
+        player.takeDamage(Math.max(1, Math.round((enemy.damage + (enemy.special?.kind === "FRENZY" ? enemy.special.damage : 0)) * damageMultiplier)));
         enemy.lastAttackAt = now;
       }
       continue;
     }
 
+    if (enemy.special?.kind === "PULSE" && distance <= enemy.special.range && now - (enemy.lastSpecialAt ?? 0) > enemy.special.cooldownSeconds * 1000) { player.takeDamage(enemy.special.damage); enemy.lastSpecialAt = now; enemy.flashUntil = now + 220; }
     if (distance > 0) {
-      const moveDistance = (enemy.speed / CANVAS_SCALE) * deltaSeconds;
+      const burst = enemy.special?.kind === "SPRINT" && Math.floor(now / 1000) % 4 === 0 ? 1.8 : 1;
+      const moveDistance = (enemy.speed / CANVAS_SCALE) * deltaSeconds * burst;
       enemy.x += (dx / distance) * moveDistance;
       enemy.y += (dy / distance) * moveDistance;
     }
@@ -151,6 +155,7 @@ export interface UseEnemiesResult {
   enemies: Enemy[];
   enemiesRef: MutableRefObject<Enemy[]>;
   damageEnemies: (ability: Ability, source: Position) => string[];
+  activeSpecial: ZombieSpecial | null;
 }
 
 export function useEnemies({
@@ -167,10 +172,11 @@ export function useEnemies({
 
   useEffect(() => {
     if (phase !== "COMBAT" || !player.isAlive || spawnedWaveRef.current === waveNumber) return;
-    const nextEnemies = createWaveEnemies(laneType, waveNumber);
+    const nextEnemies = createWaveEnemies(laneType, waveNumber, fallbackZombieSpecial(waveNumber, laneType));
     enemiesRef.current = nextEnemies;
     setEnemies(nextEnemies);
     spawnedWaveRef.current = waveNumber;
+    generateZombieSpecial(waveNumber,laneType).then((special)=>{ for(const enemy of enemiesRef.current) enemy.special=special; setEnemies([...enemiesRef.current]); });
     console.log(`[useEnemies] spawned ${nextEnemies.length} zombies for ${laneType} wave ${waveNumber}`);
   }, [laneType, phase, player, waveNumber]);
 
@@ -200,5 +206,5 @@ export function useEnemies({
     return result.hitIds;
   }, []);
 
-  return { enemies, enemiesRef, damageEnemies };
+  return { enemies, enemiesRef, damageEnemies, activeSpecial: enemies[0]?.special ?? null };
 }
