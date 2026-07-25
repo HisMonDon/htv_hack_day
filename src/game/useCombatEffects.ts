@@ -6,11 +6,15 @@ import { categoryColorHex } from "../components/categoryColor";
 
 // Combat visual effects — renders an ability's OWN sprite (if the ability
 // carries spriteData) as its fired effect, layered with a proper particle
-// system keyed off the ability's *flavor* (fire/ice/poison/lightning/
-// explosion/heal/shield/dash), detected from its name/description/
-// statusEffect text — plus a real gameplay stun (Enemy.stunnedUntil,
-// consumed by game/useEnemies.ts) with a full-canvas white/frost flash
-// whenever the ability's statusEffect says stun/freeze. No generator
+// system keyed off the ability's *flavor* (a 20-entry library — fire, ice,
+// poison, lightning, explosion, earth, water, wind, sonic, shadow, holy,
+// heal, shield, gravity, smoke, dash, plus one generic-per-category
+// fallback), detected from its name/description/statusEffect text — plus a
+// real gameplay stun (Enemy.stunnedUntil, consumed by game/useEnemies.ts)
+// with a full-canvas white/frost flash whenever the ability's statusEffect
+// says stun/freeze. computeDistinctFlavors() guarantees the two abilities
+// equipped in one lane never render the same flavor in the same round,
+// bumping a collision to its ALT_FLAVOR rotation partner. No generator
 // populates spriteData yet (see prior note), so the flavor+particle path is
 // what actually renders today; the sprite path stays wired for when it does.
 //
@@ -562,17 +566,40 @@ function drawFlavorShape(
   ctx.restore();
 }
 
-export function useCombatEffects(): UseCombatEffectsResult {
+export function useCombatEffects(equippedAbilities: [Ability, Ability]): UseCombatEffectsResult {
   const effectsRef = useRef<FiredEffect[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const boltsRef = useRef<Bolt[]>([]);
   const flashesRef = useRef<ScreenFlash[]>([]);
   const shakeRef = useRef<Shake | null>(null);
 
+  // Read fresh each fireEffect() call without forcing fireEffect itself to
+  // be recreated on every loadout change (it stays a stable useCallback).
+  const equippedRef = useRef(equippedAbilities);
+  equippedRef.current = equippedAbilities;
+  const assignmentRef = useRef<{ abilities: [Ability, Ability]; flavors: [EffectFlavor, EffectFlavor] } | null>(
+    null,
+  );
+
+  const flavorFor = useCallback((ability: Ability): EffectFlavor => {
+    const equipped = equippedRef.current;
+    const cached = assignmentRef.current;
+    const flavors =
+      cached && cached.abilities[0] === equipped[0] && cached.abilities[1] === equipped[1]
+        ? cached.flavors
+        : computeDistinctFlavors(equipped);
+    if (flavors !== cached?.flavors) assignmentRef.current = { abilities: equipped, flavors };
+
+    if (ability === equipped[0]) return flavors[0];
+    if (ability === equipped[1]) return flavors[1];
+    // Not part of the current loadout (shouldn't normally happen) — safe fallback.
+    return determineFlavor(ability);
+  }, []);
+
   const fireEffect = useCallback(
     (ability: Ability, source: Position, enemies: Enemy[], facing?: Position) => {
       const now = performance.now();
-      const flavor = determineFlavor(ability);
+      const flavor = flavorFor(ability);
       const aoe = aoeScaleFor(ability);
       const impact = ability.targeting === "self" ? null : findCosmeticImpact(enemies, source, ability.range);
       const aimPoint =
@@ -913,7 +940,7 @@ export function useCombatEffects(): UseCombatEffectsResult {
         stunRingColor: stunKind ? stunKind.flashColor : null,
       });
     },
-    [],
+    [flavorFor],
   );
 
   const drawEffects = useCallback((ctx: CanvasRenderingContext2D, now: number) => {

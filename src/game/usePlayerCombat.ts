@@ -62,7 +62,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
     waveNumber,
     player,
   });
-  const combatEffects = useCombatEffects();
+  const combatEffects = useCombatEffects(equippedAbilities);
 
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
