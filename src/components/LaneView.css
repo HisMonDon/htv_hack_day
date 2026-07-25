@@ -15,6 +15,7 @@
 
 .lane__arena {
   position: relative;
+  isolation: isolate;
   flex: 1;
   min-height: 0;
   min-width: 0;
