@@ -227,6 +227,59 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
   const lastBotRegenAtRef = useRef(0);
   const { getMovementVector } = usePlayerMovement();
 
+  const movementActionRef = useRef<MovementAction | null>(null);
+  const hasteRef = useRef<{ multiplier: number; until: number }>({ multiplier: 1, until: 0 });
+
+  // Called at both activation sites (human keydown, bot auto-fire) right
+  // after an ability actually fires — resolves its movementBehavior/status
+  // text into a real position change or a temporary speed boost.
+  function applyMovementBehavior(ability: Ability, now: number): void {
+    const kind = movementKindFor(ability);
+    if (kind) {
+      const facing =
+        player.facingDirection.x !== 0 || player.facingDirection.y !== 0
+          ? player.facingDirection
+          : { x: 0, y: 1 };
+      const travelDistance = Math.max(1.5, Math.min(ability.range || 4, 8));
+      const dest = clampToArena(
+        player.x + facing.x * travelDistance,
+        player.y + facing.y * travelDistance,
+      );
+
+      if (kind === "teleport") {
+        player.x = dest.x;
+        player.y = dest.y;
+        movementActionRef.current = null;
+      } else if (kind === "jump") {
+        movementActionRef.current = {
+          kind: "jump",
+          startX: player.x,
+          startY: player.y,
+          targetX: dest.x,
+          targetY: dest.y,
+          startedAt: now,
+          durationMs: JUMP_DURATION_MS,
+        };
+        player.invulnerableUntil = now + JUMP_DURATION_MS;
+      } else {
+        movementActionRef.current = {
+          kind: "dash",
+          startX: player.x,
+          startY: player.y,
+          targetX: dest.x,
+          targetY: dest.y,
+          startedAt: now,
+          durationMs: DASH_DURATION_MS,
+        };
+      }
+    }
+
+    const haste = hasteFor(ability);
+    if (haste) {
+      hasteRef.current = { multiplier: haste.multiplier, until: now + haste.durationMs };
+    }
+  }
+
   useEffect(() => {
     let rafId = 0;
     let lastTime = performance.now();
@@ -280,10 +333,29 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
         ctx.fillRect(x - barWidth / 2, y - radius - 8, barWidth * hpFraction, 4);
       }
 
+      const playerPx = player.x * CANVAS_SCALE;
+      const playerPy = player.y * CANVAS_SCALE;
+      const activeMovement = movementActionRef.current;
+      const jumpOffsetPx =
+        activeMovement && activeMovement.kind === "jump"
+          ? Math.sin(Math.max(0, Math.min(1, (now - activeMovement.startedAt) / activeMovement.durationMs)) * Math.PI) *
+            JUMP_HEIGHT_PX
+          : 0;
+
+      if (jumpOffsetPx > 0.5) {
+        ctx.save();
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = COLOR_VOID;
+        ctx.beginPath();
+        ctx.ellipse(playerPx, playerPy, PLAYER_RADIUS * CANVAS_SCALE * 0.8, PLAYER_RADIUS * CANVAS_SCALE * 0.35, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
       drawActor(
         ctx,
-        player.x * CANVAS_SCALE,
-        player.y * CANVAS_SCALE,
+        playerPx,
+        playerPy - jumpOffsetPx,
         PLAYER_RADIUS * CANVAS_SCALE,
         player.facingDirection.x,
         player.facingDirection.y,
@@ -298,12 +370,24 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
       lastTime = now;
 
       if (phaseRef.current === "COMBAT" && player.isAlive) {
-        if (laneType === "human") {
+        const activeMovement = movementActionRef.current;
+        const hasteMultiplier = now < hasteRef.current.until ? hasteRef.current.multiplier : 1;
+
+        if (activeMovement) {
+          const t = Math.min(1, (now - activeMovement.startedAt) / activeMovement.durationMs);
+          const next = clampToArena(
+            activeMovement.startX + (activeMovement.targetX - activeMovement.startX) * t,
+            activeMovement.startY + (activeMovement.targetY - activeMovement.startY) * t,
+          );
+          player.x = next.x;
+          player.y = next.y;
+          if (t >= 1) movementActionRef.current = null;
+        } else if (laneType === "human") {
           const move = getMovementVector();
           if (move.x !== 0 || move.y !== 0) {
             const next = clampToArena(
-              player.x + move.x * PLAYER_MOVE_SPEED * deltaSeconds,
-              player.y + move.y * PLAYER_MOVE_SPEED * deltaSeconds,
+              player.x + move.x * PLAYER_MOVE_SPEED * hasteMultiplier * deltaSeconds,
+              player.y + move.y * PLAYER_MOVE_SPEED * hasteMultiplier * deltaSeconds,
             );
             player.x = next.x;
             player.y = next.y;
@@ -342,7 +426,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
               const moveLength = Math.hypot(moveX, moveY) || 1;
               const direction = { x: moveX / moveLength, y: moveY / moveLength };
               const speedScale = distancePx < BOT_RETREAT_DISTANCE_PX ? 1 : 0.65;
-              const step = (BOT_MOVE_SPEED_PX / CANVAS_SCALE) * speedScale * deltaSeconds;
+              const step = (BOT_MOVE_SPEED_PX / CANVAS_SCALE) * speedScale * hasteMultiplier * deltaSeconds;
               const next = clampToArena(
                 player.x + direction.x * step,
                 player.y + direction.y * step,
@@ -379,6 +463,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
               enemiesRef.current,
               player.facingDirection,
             );
+            applyMovementBehavior(ability, now);
             cooldownsRef.current[slot] = demoCooldownSeconds(ability.cooldownSeconds);
             console.log(
               `[usePlayerCombat] bot auto-fired "${ability.name}" (slot ${slot}) — hit:`,
