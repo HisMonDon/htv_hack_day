@@ -64,6 +64,7 @@ export function advanceEnemies(
 
   for (const enemy of enemies) {
     if (!enemy.alive) continue;
+    if (enemy.stunnedUntil && now < enemy.stunnedUntil) continue;
 
     const dx = player.x - enemy.x;
     const dy = player.y - enemy.y;

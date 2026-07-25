@@ -27,6 +27,11 @@ export interface Ability {
   statusEffect: StatusEffect;
   movementBehavior: string | null;
   targeting: string;
+  // Populated by the sprite-generation pipeline once it exists (spec 6.1);
+  // optional/nullable because no generator sets it yet. Combat VFX
+  // (game/useCombatEffects.ts) reads this and falls back to a category
+  // shape whenever it's absent.
+  spriteData?: SpriteData | null;
 }
 
 // Task 4 — minimal shared interface for anything that can take damage from
@@ -68,6 +73,10 @@ export interface Enemy {
   alive: boolean;
   kind: "zombie";
   flashUntil?: number;
+  // Set by combat VFX (game/useCombatEffects.ts) when a stun/freeze-flavored
+  // ability hits — advanceEnemies (game/arena.ts) skips movement/attack for
+  // this enemy while performance.now() < stunnedUntil.
+  stunnedUntil?: number;
 }
 
 export type ZombieAttackType = "MELEE" | "RANGED" | "AURA";

@@ -11,6 +11,7 @@ import {
   clampToArena,
 } from "./arena";
 import { createPlayerEntity } from "./playerEntity";
+import { useCombatEffects } from "./useCombatEffects";
 import { useEnemies } from "./useEnemies";
 import { usePlayerMovement } from "./usePlayerMovement";
 
@@ -61,6 +62,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
     waveNumber,
     player,
   });
+  const combatEffects = useCombatEffects();
 
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
@@ -94,13 +96,25 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       const now = performance.now();
+      const shake = combatEffects.getShakeOffset(now);
+      ctx.save();
+      ctx.translate(shake.x, shake.y);
+
       for (const enemy of enemiesRef.current) {
         if (!enemy.alive) continue;
         const x = enemy.x * CANVAS_SCALE;
         const y = enemy.y * CANVAS_SCALE;
         const radius = enemy.radius * CANVAS_SCALE;
 
-        ctx.fillStyle = enemy.flashUntil && enemy.flashUntil > now ? "#ffffff" : "#77a83b";
+        const isStunned = !!enemy.stunnedUntil && enemy.stunnedUntil > now;
+        const isFlashed = !!enemy.flashUntil && enemy.flashUntil > now;
+        ctx.fillStyle = isFlashed
+          ? "#ffffff"
+          : isStunned
+            ? Math.floor(now / 100) % 2 === 0
+              ? "#fff8b0"
+              : "#ffe066"
+            : "#77a83b";
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fill();
@@ -133,6 +147,8 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
       );
       ctx.stroke();
 
+      combatEffects.drawEffects(ctx, now);
+
       if (laneType === "human") {
         ctx.fillStyle = "#ffffff";
         ctx.font = "12px monospace";
@@ -146,6 +162,8 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
         ctx.font = "16px monospace";
         ctx.fillText("DEFEATED", canvas.width / 2 - 40, canvas.height / 2);
       }
+
+      ctx.restore();
     }
 
     function tick(now: number) {
@@ -228,6 +246,12 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
             const hitIds = damageEnemies(ability, { x: player.x, y: player.y });
             if (hitIds.length === 0) continue;
 
+            combatEffects.fireEffect(
+              ability,
+              { x: player.x, y: player.y },
+              enemiesRef.current,
+              player.facingDirection,
+            );
             cooldownsRef.current[slot] = demoCooldownSeconds(ability.cooldownSeconds);
             console.log(
               `[usePlayerCombat] bot auto-fired "${ability.name}" (slot ${slot}) — hit:`,
@@ -264,6 +288,12 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
 
       const ability = equippedRef.current[slot];
       const hitIds = damageEnemies(ability, { x: player.x, y: player.y });
+      combatEffects.fireEffect(
+        ability,
+        { x: player.x, y: player.y },
+        enemiesRef.current,
+        player.facingDirection,
+      );
       cooldownsRef.current[slot] = demoCooldownSeconds(ability.cooldownSeconds);
 
       console.log(
@@ -274,7 +304,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [damageEnemies, laneType, player]);
+  }, [combatEffects.fireEffect, damageEnemies, enemiesRef, laneType, player]);
 
   // Temporary death-path helper retained for quick hackathon verification.
   useEffect(() => {
