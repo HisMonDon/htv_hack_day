@@ -64,6 +64,9 @@ export function HUD({ laneState }: HUDProps) {
                   />
                 </div>
               </div>
+              <span className={`hud__ability-cd-text ${isReady ? "hud__ability-cd-text--ready" : ""}`}>
+                {isReady ? "READY" : `${remaining.toFixed(1)}s`}
+              </span>
             </div>
           );
         })}

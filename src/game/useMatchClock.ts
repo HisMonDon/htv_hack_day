@@ -19,6 +19,10 @@ export interface MatchClockState {
 export interface LaneAdapter {
   isAlive: () => boolean;
   isGenerationReady: () => boolean;
+  // True once this lane's current wave has spawned zombies and every one of
+  // them is dead — lets the clock skip the rest of the combat timer instead
+  // of idling until it expires.
+  hasNoEnemies: () => boolean;
   // Kicks off generation of the options that will be presented at the end
   // of forWaveNumber's combat phase.
   kickGeneration: (forWaveNumber: number) => void;
@@ -132,6 +136,14 @@ export function useMatchClock(initialWaveNumber = 1): UseMatchClockResult {
       const current = stateRef.current;
 
       if (current.phase === "COMBAT") {
+        // Both sides cleared their wave early — no reason to sit out the
+        // rest of the combat timer with nothing left to fight.
+        const alive = aliveLaneEntries();
+        if (alive.length > 0 && alive.every(([, adapter]) => adapter.hasNoEnemies())) {
+          tryOpenPicking();
+          return;
+        }
+
         const remaining = current.combatTimeRemaining - 1;
         if (remaining > 0) {
           setState({ ...current, combatTimeRemaining: remaining });
