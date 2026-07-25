@@ -1,12 +1,15 @@
 .hud {
   --lane-accent: var(--color-human);
+  --lane-glow-rgb: var(--glow-human-rgb);
   padding: 0.75rem 1rem;
   background: var(--color-panel);
   border-bottom: 2px solid var(--lane-accent);
+  box-shadow: 0 6px 16px -8px rgba(var(--lane-glow-rgb), 0.7);
 }
 
 .hud--bot {
   --lane-accent: var(--color-bot);
+  --lane-glow-rgb: var(--glow-bot-rgb);
 }
 
 .hud__top {
@@ -24,6 +27,7 @@
   background: var(--lane-accent);
   padding: 0.2rem 0.5rem;
   border-radius: 2px;
+  box-shadow: 0 0 8px rgba(var(--lane-glow-rgb), 0.55);
 }
 
 .hud__wave {
@@ -57,10 +61,12 @@
 .hud__hp-fill {
   height: 100%;
   background: var(--lane-accent);
+  box-shadow: 0 0 6px rgba(var(--lane-glow-rgb), 0.6);
 }
 
 .hud__hp-fill--low {
   background: var(--color-danger);
+  box-shadow: 0 0 6px rgba(var(--glow-danger-rgb), 0.65);
 }
 
 .hud__hp-text {
@@ -72,6 +78,7 @@
 
 .hud__hp-text--low {
   color: var(--color-danger);
+  text-shadow: 0 0 4px rgba(var(--glow-danger-rgb), 0.6);
 }
 
 .hud__abilities {
@@ -86,13 +93,18 @@
   gap: 0.4rem;
   padding: 0.3rem 0.4rem;
   background: var(--color-panel-raised);
-  border: 1px solid var(--category-color, var(--color-border));
-  border-radius: 3px;
-  opacity: 0.55;
+  border: 2px solid var(--category-color, var(--color-border));
+  border-radius: 2px;
+  /* Cooldown = inert: fully desaturated and dimmed, glow removed. Ready is
+     the loud state, not this one. */
+  filter: grayscale(0.85) brightness(0.65);
+  opacity: 0.75;
 }
 
 .hud__ability--ready {
+  filter: none;
   opacity: 1;
+  box-shadow: 0 0 10px rgba(var(--lane-glow-rgb), 0.55);
 }
 
 .hud__ability-key {

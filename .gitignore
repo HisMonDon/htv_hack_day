@@ -30,5 +30,8 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 
+# Local verification artifacts
+.tmp/
+
 .claude
 .claude/*

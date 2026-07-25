@@ -18,6 +18,7 @@
       var(--color-void) 10px 20px
     )
     4;
+  box-shadow: 0 0 20px rgba(var(--glow-human-rgb), 0.5);
   background: var(--color-panel);
   padding: 1.1rem;
   display: flex;
@@ -42,6 +43,7 @@
 
 .pick-overlay__timer--urgent {
   color: var(--color-danger);
+  text-shadow: 0 0 4px rgba(var(--glow-danger-rgb), 0.6);
 }
 
 .pick-overlay__cards {

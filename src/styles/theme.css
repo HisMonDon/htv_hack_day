@@ -21,6 +21,25 @@
   --color-defense: #6b8e4e;
   --color-utility: #8a7bae;
 
+  /* Glow — RGB channels (not full shadow strings) for the three loud accents
+     above, so callers can compose box-shadow/text-shadow at whatever blur/
+     alpha fits the element. Category tag colors intentionally have no entry
+     here — they stay flat everywhere, glow is reserved for what already
+     carries meaning (lane identity + danger). */
+  --glow-human-rgb: 53, 224, 200;
+  --glow-bot-rgb: 255, 61, 127;
+  --glow-danger-rgb: 255, 46, 46;
+
+  /* Very low-opacity scanline texture — arena background only, never on
+     HUD/card surfaces that need to stay clean and legible. */
+  --scanline-texture: repeating-linear-gradient(
+    0deg,
+    rgba(237, 230, 214, 0.04) 0px,
+    rgba(237, 230, 214, 0.04) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+
   --font-display: "Bungee", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
 }

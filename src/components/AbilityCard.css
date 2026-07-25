@@ -5,7 +5,7 @@
   gap: 0.5rem;
   background: var(--color-panel-raised);
   border: 2px solid var(--category-color);
-  border-radius: 4px;
+  border-radius: 2px;
   padding: 0.9rem;
   cursor: pointer;
   min-width: 0;
