@@ -19,7 +19,6 @@ const BOT_MOVE_SPEED_PX = 80;
 const BOT_RETREAT_DISTANCE_PX = 80;
 const BOT_APPROACH_DISTANCE_PX = 180;
 const BOT_EDGE_BIAS_PX = 40;
-const BOT_REGEN_PER_SECOND = 3;
 const DEMO_MIN_COOLDOWN_SECONDS = 0.6;
 const DEMO_MAX_COOLDOWN_SECONDS = 1.8;
 
@@ -180,7 +179,6 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
 
   const [snapshot, setSnapshot] = useState({ hp: player.hp, isAlive: player.isAlive });
   const lastKnownRef = useRef(snapshot);
-  const lastBotRegenAtRef = useRef(0);
   const { getMovementVector } = usePlayerMovement();
 
   useEffect(() => {
@@ -296,10 +294,6 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
             }
           }
 
-          if (now - lastBotRegenAtRef.current >= 1000) {
-            player.hp = Math.min(player.maxHp, player.hp + BOT_REGEN_PER_SECOND);
-            lastBotRegenAtRef.current = now;
-          }
         }
 
         for (let index = 0; index < cooldownsRef.current.length; index += 1) {
