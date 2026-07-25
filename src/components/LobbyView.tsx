@@ -48,7 +48,8 @@ function ActiveMatch({
   const humanLoadoutRef = useRef(createStartingLoadout("human"));
   const botLoadoutRef = useRef(createStartingLoadout("bot"));
   const { phase, waveNumber, combatTimeRemaining, pickTimeRemaining, registerLane, notifyGenerationReady, notifyPickCommitted } =
-    useMatchClock();
+    useMatchClock(1, countdownDone);
+  const visiblePhase = countdownDone ? phase : "TRANSITIONING";
   const { currentPlan: zombieWavePlan, isGeneratingCurrentWave } =
     useZombieWaveGeneration(waveNumber);
   const handleDefeated = useCallback((laneType: "human" | "bot", defeatedAtWave: number) => {
@@ -66,7 +67,7 @@ function ActiveMatch({
           laneType="human"
           initialEquippedAbilities={humanLoadoutRef.current}
           survivalTimeSeconds={0}
-          matchPhase={phase}
+          matchPhase={visiblePhase}
           matchWaveNumber={waveNumber}
           combatTimeRemaining={combatTimeRemaining}
           pickTimeRemaining={pickTimeRemaining}
@@ -81,7 +82,7 @@ function ActiveMatch({
           laneType="bot"
           initialEquippedAbilities={botLoadoutRef.current}
           survivalTimeSeconds={0}
-          matchPhase={phase}
+          matchPhase={visiblePhase}
           matchWaveNumber={waveNumber}
           combatTimeRemaining={combatTimeRemaining}
           pickTimeRemaining={pickTimeRemaining}

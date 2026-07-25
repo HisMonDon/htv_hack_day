@@ -15,6 +15,7 @@
 
 .lane__arena {
   position: relative;
+  isolation: isolate;
   flex: 1;
   min-height: 0;
   min-width: 0;
@@ -30,7 +31,29 @@
   padding: 0.75rem;
 }
 
+.lane__arena::after {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(
+      ellipse at center,
+      transparent 28%,
+      rgba(var(--glow-danger-rgb), 0.14) 62%,
+      rgba(var(--glow-danger-rgb), 0.58) 100%
+    );
+  box-shadow:
+    inset 0 0 42px rgba(var(--glow-danger-rgb), 0.42),
+    inset 0 0 105px rgba(85, 0, 0, 0.58);
+  transition: opacity 220ms linear;
+}
+
 .lane__canvas {
+  position: relative;
+  z-index: 1;
   image-rendering: pixelated;
   border: 2px solid var(--color-border);
   box-shadow: 0 0 32px rgba(var(--lane-glow-rgb), 0.35);
@@ -41,13 +64,49 @@
   max-height: 100%;
   object-fit: contain;
 }
+
+.lane--wounded .lane__arena::after {
+  opacity: 0.68;
+}
+
+.lane--critical .lane__arena::after {
+  opacity: 1;
+  animation: lane-critical-blood-pulse 1.05s ease-in-out infinite;
+}
+
+.lane--critical .lane__arena {
+  border-top-color: var(--color-danger);
+  box-shadow:
+    0 -8px 30px -6px rgba(var(--glow-danger-rgb), 0.88),
+    inset 0 0 72px rgba(var(--glow-danger-rgb), 0.16);
+}
+
+@keyframes lane-critical-blood-pulse {
+  0%,
+  100% {
+    opacity: 0.66;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lane--critical .lane__arena::after {
+    animation: none;
+    opacity: 0.88;
+  }
+}
+
 .lane__mutant-roster { position:absolute; z-index:3; top:1rem; left:1rem; display:grid; gap:.22rem; width:min(10.5rem,42%); padding:.5rem .6rem; color:var(--color-bone); background:rgba(11,11,14,.82); border:1px solid var(--color-border); border-left:3px solid var(--lane-accent); box-shadow:0 0 16px rgba(var(--lane-glow-rgb),.18); font-size:.56rem; line-height:1.25; pointer-events:none; }.lane__mutant-kicker { color:var(--lane-accent); font-size:.52rem; font-weight:700; letter-spacing:.08em; }.lane__mutant-theme { overflow:hidden; color:var(--color-bone); font-size:.62rem; text-overflow:ellipsis; white-space:nowrap; }.lane__mutant-type { overflow:hidden; color:var(--color-bone-dim); text-overflow:ellipsis; white-space:nowrap; }.lane__mutant-type small { display:block; overflow:hidden; margin-top:.08rem; color:var(--color-bone); font-size:.5rem; text-overflow:ellipsis; white-space:nowrap; }
-.lane__aura { position:absolute; inset:.75rem; overflow:hidden; pointer-events:none; animation:aura-fade .8s linear both; }.lane__aura i { position:absolute; left:calc((var(--n) * 7.7%) + 1%); bottom:-8px; width:12px; height:22px; background:var(--aura-main); transform:rotate(calc(var(--n) * 19deg)); }.lane__aura--offense { --aura-main:#ff5a35; box-shadow:inset 0 0 20px rgba(255,66,33,.48); }.lane__aura--offense i { border-radius:70% 30% 65% 35%; box-shadow:0 -8px #ffcf4a,0 0 12px #ff522f; animation:fire-rise .55s calc(var(--n) * -45ms) ease-out both; }.lane__aura--defense { --aura-main:#9eeeff; box-shadow:inset 0 0 20px rgba(111,210,255,.43); }.lane__aura--defense i { width:9px; height:16px; bottom:auto; top:-5px; clip-path:polygon(50% 0,100% 100%,50% 82%,0 100%); box-shadow:0 0 8px #a9efff; animation:ice-fall .7s calc(var(--n) * -38ms) linear both; }.lane__aura--mobility { --aura-main:#71caff; }.lane__aura--mobility i { height:4px; width:44px; animation:dash-streak .5s calc(var(--n) * -30ms) linear both; }.lane__aura--utility { --aura-main:#6df0ad; }.lane__aura--utility i { border-radius:50%; width:10px; height:10px; animation:orb-float .65s calc(var(--n) * -35ms) ease-out both; } @keyframes aura-fade { 0%,65%{opacity:1}100%{opacity:0} } @keyframes fire-rise { from{transform:translateY(0) scale(.6) rotate(calc(var(--n)*19deg));opacity:1}to{transform:translateY(-68px) scale(1.4) rotate(calc(var(--n)*19deg));opacity:0} } @keyframes ice-fall { from{transform:translateY(0) rotate(0);opacity:1}to{transform:translateY(74px) rotate(180deg);opacity:0} } @keyframes dash-streak { from{transform:translateX(-55px);opacity:0}25%{opacity:1}to{transform:translateX(90px);opacity:0} } @keyframes orb-float { from{transform:translateY(0) scale(.5);opacity:1}to{transform:translateY(-55px) scale(1.5);opacity:0} }
+.lane__aura { position:absolute; z-index:4; inset:.75rem; overflow:hidden; pointer-events:none; animation:aura-fade .8s linear both; }.lane__aura i { position:absolute; left:calc((var(--n) * 7.7%) + 1%); bottom:-8px; width:12px; height:22px; background:var(--aura-main); transform:rotate(calc(var(--n) * 19deg)); }.lane__aura--offense { --aura-main:#ff5a35; box-shadow:inset 0 0 20px rgba(255,66,33,.48); }.lane__aura--offense i { border-radius:70% 30% 65% 35%; box-shadow:0 -8px #ffcf4a,0 0 12px #ff522f; animation:fire-rise .55s calc(var(--n) * -45ms) ease-out both; }.lane__aura--defense { --aura-main:#9eeeff; box-shadow:inset 0 0 20px rgba(111,210,255,.43); }.lane__aura--defense i { width:9px; height:16px; bottom:auto; top:-5px; clip-path:polygon(50% 0,100% 100%,50% 82%,0 100%); box-shadow:0 0 8px #a9efff; animation:ice-fall .7s calc(var(--n) * -38ms) linear both; }.lane__aura--mobility { --aura-main:#71caff; }.lane__aura--mobility i { height:4px; width:44px; animation:dash-streak .5s calc(var(--n) * -30ms) linear both; }.lane__aura--utility { --aura-main:#6df0ad; }.lane__aura--utility i { border-radius:50%; width:10px; height:10px; animation:orb-float .65s calc(var(--n) * -35ms) ease-out both; } @keyframes aura-fade { 0%,65%{opacity:1}100%{opacity:0} } @keyframes fire-rise { from{transform:translateY(0) scale(.6) rotate(calc(var(--n)*19deg));opacity:1}to{transform:translateY(-68px) scale(1.4) rotate(calc(var(--n)*19deg));opacity:0} } @keyframes ice-fall { from{transform:translateY(0) rotate(0);opacity:1}to{transform:translateY(74px) rotate(180deg);opacity:0} } @keyframes dash-streak { from{transform:translateX(-55px);opacity:0}25%{opacity:1}to{transform:translateX(90px);opacity:0} } @keyframes orb-float { from{transform:translateY(0) scale(.5);opacity:1}to{transform:translateY(-55px) scale(1.5);opacity:0} }
 
 .lane__mutant-trait { position:absolute; top:1rem; right:1rem; margin:0; padding:.48rem .62rem; color:#e9d7ff; background:linear-gradient(135deg,rgba(45,18,67,.94),rgba(18,10,29,.9)); border:1px solid #b77aff; border-left:4px solid #d9b4ff; box-shadow:0 0 18px rgba(183,122,255,.32); font-size:.57rem; font-weight:700; letter-spacing:.08em; }.lane__mutant-trait strong { display:block; margin-top:.18rem; color:#fff; font-family:var(--font-display); font-size:.72rem; }
 
 .lane__status {
   position: absolute;
+  z-index: 5;
   inset: 0;
   display: flex;
   align-items: center;
