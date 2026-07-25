@@ -19,6 +19,8 @@ export interface MatchClockState {
 export interface LaneAdapter {
   isAlive: () => boolean;
   isGenerationReady: () => boolean;
+  // True once this lane has chosen its option for the active pick phase.
+  hasCommittedPick: () => boolean;
   // True once this lane's current wave has spawned zombies and every one of
   // them is dead — lets the clock skip the rest of the combat timer instead
   // of idling until it expires.
@@ -38,6 +40,9 @@ export interface UseMatchClockResult extends MatchClockState {
   // match paused on it can resume immediately instead of waiting for the
   // next tick.
   notifyGenerationReady: () => void;
+  // A lane calls this immediately after committing its pick so the shared
+  // clock can advance without waiting for the fallback timer.
+  notifyPickCommitted: () => void;
 }
 
 function createInitialState(waveNumber: number): MatchClockState {
@@ -64,6 +69,7 @@ export function useMatchClock(initialWaveNumber = 1): UseMatchClockResult {
 
   const lanesRef = useRef<Map<LaneType, LaneAdapter>>(new Map());
   const hasKickedInitialRef = useRef<Set<LaneType>>(new Set());
+  const isFinalizingRef = useRef(false);
 
   const aliveLaneEntries = useCallback((): [LaneType, LaneAdapter][] => {
     return [...lanesRef.current.entries()].filter(([, adapter]) => adapter.isAlive());
@@ -114,17 +120,36 @@ export function useMatchClock(initialWaveNumber = 1): UseMatchClockResult {
   // the original per-lane version: increment wave, finalize every alive
   // lane's pick, reset both timers, land back in COMBAT.
   const finalizeRound = useCallback(() => {
+    if (stateRef.current.phase !== "PICKING" || isFinalizingRef.current) return;
+    isFinalizingRef.current = true;
     const nextWaveNumber = stateRef.current.waveNumber + 1;
     for (const [, adapter] of aliveLaneEntries()) {
       adapter.finalizeRound(nextWaveNumber);
     }
-    setState({
+    const nextState: MatchClockState = {
       phase: "COMBAT",
       waveNumber: nextWaveNumber,
       combatTimeRemaining: COMBAT_DURATION_SECONDS,
       pickTimeRemaining: PICK_DURATION_SECONDS,
-    });
+    };
+    // Update the ref synchronously so a timer tick or a second notification
+    // in the same render cannot finalize the round twice.
+    stateRef.current = nextState;
+    setState(nextState);
+    isFinalizingRef.current = false;
   }, [aliveLaneEntries]);
+
+  const tryFinalizePickedRound = useCallback(() => {
+    if (stateRef.current.phase !== "PICKING") return;
+    const alive = aliveLaneEntries();
+    if (alive.length > 0 && alive.every(([, adapter]) => adapter.hasCommittedPick())) {
+      finalizeRound();
+    }
+  }, [aliveLaneEntries, finalizeRound]);
+
+  const notifyPickCommitted = useCallback(() => {
+    tryFinalizePickedRound();
+  }, [tryFinalizePickedRound]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -171,5 +196,5 @@ export function useMatchClock(initialWaveNumber = 1): UseMatchClockResult {
     return () => clearInterval(interval);
   }, [aliveLaneEntries, tryOpenPicking, finalizeRound]);
 
-  return { ...state, registerLane, notifyGenerationReady };
+  return { ...state, registerLane, notifyGenerationReady, notifyPickCommitted };
 }

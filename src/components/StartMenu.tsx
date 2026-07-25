@@ -1,6 +1,6 @@
 import "./StartMenu.css";
 import { useState } from "react";
-import { ProjectSprite } from "./ProjectSprite";
+import heroBattleImage from "../assets/hero-battle.png";
 
 export interface StartMenuProps {
   onStart: () => void;
@@ -24,8 +24,8 @@ export function StartMenu({ onStart }: StartMenuProps) {
         </div>
       </section>
 
-      <aside className="start-menu__art" aria-label="Zombie artwork">
-        <ProjectSprite />
+      <aside className="start-menu__art" aria-label="Hero battling a zombie">
+        <img className="start-menu__art-image" src={heroBattleImage} alt="Hero blasting a zombie with a rainbow energy wave" />
       </aside>
       <footer className="start-menu__footer">HUMAN VS RIVAL BOT <span>•</span> BUILD UNSTABLE</footer>
       {showHowToPlay && <div className="how-to-play" role="dialog" aria-modal="true" aria-label="How to play"><section><button className="how-to-play__close" type="button" onClick={() => setShowHowToPlay(false)} aria-label="Close how to play">×</button><p className="how-to-play__status"><i aria-hidden="true" /> ARENA SYSTEMS READY</p><h2>RUN BRIEFING</h2><div><strong>MOVE</strong><span>Evade the horde with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>.</span></div><div><strong>FIRE</strong><span>Activate your equipped abilities with <kbd>J</kbd> and <kbd>K</kbd>.</span></div><div><strong>ADAPT</strong><span>Choose one of two mutations before the draft timer ends.</span></div><p className="how-to-play__warning">NEW PICKS REPLACE YOUR OLDEST ABILITY.</p><button className="how-to-play__ready" type="button" onClick={() => setShowHowToPlay(false)}>GOT IT</button></section></div>}

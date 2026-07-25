@@ -30,6 +30,7 @@ export interface LaneViewProps {
   pickTimeRemaining: number;
   registerLane: (laneType: LaneType, adapter: LaneAdapter) => void;
   notifyGenerationReady: () => void;
+  notifyPickCommitted: () => void;
   onDefeated: (laneType: LaneType, waveNumber: number) => void;
   zombieWavePlan: ZombieWavePlan;
   isZombieWaveGenerating: boolean;
@@ -49,6 +50,7 @@ export function LaneView({
   pickTimeRemaining,
   registerLane,
   notifyGenerationReady,
+  notifyPickCommitted,
   onDefeated,
   zombieWavePlan,
   isZombieWaveGenerating,
@@ -105,6 +107,7 @@ export function LaneView({
     // Bot lane's pick is decided by botController, never by human input.
     autoPickForBot: laneType === "bot" ? decideBotAbilityPick : undefined,
     notifyGenerationReady,
+    notifyPickCommitted,
   });
 
   // Register this lane's generation adapter with the shared match clock once

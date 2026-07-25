@@ -47,7 +47,7 @@ function ActiveMatch({
   const [countdownDone, setCountdownDone] = useState(false);
   const humanLoadoutRef = useRef(createStartingLoadout("human"));
   const botLoadoutRef = useRef(createStartingLoadout("bot"));
-  const { phase, waveNumber, combatTimeRemaining, pickTimeRemaining, registerLane, notifyGenerationReady } =
+  const { phase, waveNumber, combatTimeRemaining, pickTimeRemaining, registerLane, notifyGenerationReady, notifyPickCommitted } =
     useMatchClock();
   const { currentPlan: zombieWavePlan, isGeneratingCurrentWave } =
     useZombieWaveGeneration(waveNumber);
@@ -72,6 +72,7 @@ function ActiveMatch({
           pickTimeRemaining={pickTimeRemaining}
           registerLane={registerLane}
           notifyGenerationReady={notifyGenerationReady}
+          notifyPickCommitted={notifyPickCommitted}
           onDefeated={handleDefeated}
           zombieWavePlan={zombieWavePlan}
           isZombieWaveGenerating={isGeneratingCurrentWave}
@@ -86,6 +87,7 @@ function ActiveMatch({
           pickTimeRemaining={pickTimeRemaining}
           registerLane={registerLane}
           notifyGenerationReady={notifyGenerationReady}
+          notifyPickCommitted={notifyPickCommitted}
           onDefeated={handleDefeated}
           zombieWavePlan={zombieWavePlan}
           isZombieWaveGenerating={isGeneratingCurrentWave}

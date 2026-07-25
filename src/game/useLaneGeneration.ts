@@ -19,6 +19,9 @@ export interface UseLaneGenerationOptions {
   // useMatchClock.notifyGenerationReady — lets a match paused on this lane
   // resume the instant this lane's generation resolves.
   notifyGenerationReady: () => void;
+  // useMatchClock.notifyPickCommitted â€” allows the shared clock to start
+  // the next wave as soon as every living lane has selected an option.
+  notifyPickCommitted: () => void;
 }
 
 export interface LaneGenerationState {
@@ -52,7 +55,15 @@ export interface UseLaneGenerationResult extends LaneGenerationState {
 // decideBotAbilityPick) stay exactly as independent as before; only the
 // phase/wave/timer clock moved out to useMatchClock (shared).
 export function useLaneGeneration(opts: UseLaneGenerationOptions): UseLaneGenerationResult {
-  const { laneType, getCurrentLoadout, onApplyPick, isAlive, autoPickForBot, notifyGenerationReady } = opts;
+  const {
+    laneType,
+    getCurrentLoadout,
+    onApplyPick,
+    isAlive,
+    autoPickForBot,
+    notifyGenerationReady,
+    notifyPickCommitted,
+  } = opts;
 
   const [state, setState] = useState<LaneGenerationState>({
     pendingOptions: null,
@@ -119,10 +130,12 @@ export function useLaneGeneration(opts: UseLaneGenerationOptions): UseLaneGenera
       if (stateRef.current.hasCommittedPick) return;
       const options = stateRef.current.pendingOptions;
       if (!options) return;
+      stateRef.current = { ...stateRef.current, hasCommittedPick: true };
       setState((prev) => ({ ...prev, hasCommittedPick: true }));
       onApplyPick(options[index]);
+      notifyPickCommitted();
     },
-    [onApplyPick],
+    [notifyPickCommitted, onApplyPick],
   );
 
   const pick = useCallback((index: 0 | 1) => commitPick(index), [commitPick]);
@@ -164,6 +177,7 @@ export function useLaneGeneration(opts: UseLaneGenerationOptions): UseLaneGenera
   const adapter: Omit<LaneAdapter, "hasNoEnemies"> = {
     isAlive,
     isGenerationReady: () => stateRef.current.isGenerationReady,
+    hasCommittedPick: () => stateRef.current.hasCommittedPick,
     kickGeneration,
     finalizeRound,
   };

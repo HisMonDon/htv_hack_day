@@ -28,19 +28,36 @@ export async function generateStructuredJSON<T>(
   responseSchema: object,
 ): Promise<T> {
   const genAI = getClient();
-  const response = await genAI.models.generateContent({
+  const request = {
     model: GEMINI_MODEL,
     contents: prompt,
     config: {
       responseMimeType: "application/json",
       responseSchema,
     },
-  });
+  };
+
+  if (import.meta.env.DEV) {
+    console.groupCollapsed("[Gemini] JSON request");
+    console.log(JSON.stringify(request, null, 2));
+    console.groupEnd();
+  }
+
+  const response = await genAI.models.generateContent(request);
 
   const text = response.text;
   if (!text) {
     throw new Error("Gemini returned an empty response");
   }
 
-  return JSON.parse(text) as T;
+  const parsed = JSON.parse(text) as T;
+
+  if (import.meta.env.DEV) {
+    console.groupCollapsed("[Gemini] JSON response");
+    console.log(text);
+    console.log("Parsed response:", parsed);
+    console.groupEnd();
+  }
+
+  return parsed;
 }
