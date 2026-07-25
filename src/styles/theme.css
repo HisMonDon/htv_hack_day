@@ -16,7 +16,10 @@
 
   /* Category tags — deliberately muted so they never compete with the
      lane/danger accents above */
-  --color-offense: #c4552b;
+  /* Nudged up from #c4552b, which gave black tag text only 4.38:1 — under the
+     4.5:1 floor for the 0.62rem category label. #cc5c30 reads identically as
+     burnt amber and clears it at 4.81:1. */
+  --color-offense: #cc5c30;
   --color-mobility: #3b8fa3;
   --color-defense: #6b8e4e;
   --color-utility: #8a7bae;
@@ -30,18 +33,117 @@
   --glow-bot-rgb: 255, 61, 127;
   --glow-danger-rgb: 255, 46, 46;
 
-  /* Very low-opacity scanline texture — arena background only, never on
-     HUD/card surfaces that need to stay clean and legible. */
+  /* Dried blood and rust — the grime layer. Used for deep edges, inner
+     shadows, and the underside of every raised surface so nothing reads as
+     clean plastic. Never used behind text. */
+  --color-blood: #5c0d10;
+  --color-blood-deep: #2e0708;
+  --color-rust: #7a2318;
+
+  /* Scanlines — heavier than a hint. The arena should look like it is being
+     displayed on failing hardware. */
   --scanline-texture: repeating-linear-gradient(
     0deg,
-    rgba(237, 230, 214, 0.04) 0px,
-    rgba(237, 230, 214, 0.04) 1px,
+    rgba(237, 230, 214, 0.07) 0px,
+    rgba(237, 230, 214, 0.07) 1px,
     transparent 1px,
     transparent 3px
   );
 
+  /* Claw marks — steep, irregular diagonal scoring. Layered over panels at
+     low alpha so surfaces read as gouged metal rather than flat fills. */
+  --claw-texture: repeating-linear-gradient(
+      74deg,
+      rgba(0, 0, 0, 0.55) 0px,
+      rgba(0, 0, 0, 0.55) 1px,
+      transparent 1px,
+      transparent 9px
+    ),
+    repeating-linear-gradient(
+      -68deg,
+      rgba(0, 0, 0, 0.4) 0px,
+      rgba(0, 0, 0, 0.4) 2px,
+      transparent 2px,
+      transparent 23px
+    );
+
+  /* Vignette — pulls the eye to the centre of the arena and darkens the
+     corners like a bowed CRT. */
+  --arena-vignette: radial-gradient(
+    ellipse at center,
+    transparent 45%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+
+  /* Diamond mesh floor plate — industrial tread, the base layer of the pit. */
+  --floor-plate: repeating-linear-gradient(
+      45deg,
+      rgba(237, 230, 214, 0.045) 0 1px,
+      transparent 1px 13px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(237, 230, 214, 0.03) 0 1px,
+      transparent 1px 13px
+    );
+
+  /* Heavy seams where the floor plates are bolted together. */
+  --panel-seams: repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.6) 0 2px,
+      transparent 2px 78px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.6) 0 2px,
+      transparent 2px 78px
+    );
+
+  /* Corrosion blooming out of the corners — asymmetric on purpose. */
+  --corner-rot: radial-gradient(
+      circle at 0% 0%,
+      rgba(122, 35, 24, 0.5) 0%,
+      transparent 34%
+    ),
+    radial-gradient(circle at 100% 0%, rgba(46, 7, 8, 0.55) 0%, transparent 26%),
+    radial-gradient(circle at 8% 100%, rgba(46, 7, 8, 0.6) 0%, transparent 30%),
+    radial-gradient(circle at 100% 92%, rgba(122, 35, 24, 0.4) 0%, transparent 38%);
+
+  /* Distressed screen-print grain. Self-contained SVG turbulence rather than
+     a bitmap so it costs no request and tiles at any size. Always layered at
+     low opacity via a pseudo-element with pointer-events: none — never as a
+     background on an element that contains small text. */
+  --texture-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+
+  /* Hazard chevrons. Callers set --hazard-color; the void gaps keep it
+     reading as painted warning tape rather than a gradient. */
+  --hazard-stripes: repeating-linear-gradient(
+    45deg,
+    var(--hazard-color, var(--color-bone-dim)) 0 8px,
+    var(--color-void) 8px 16px
+  );
+
+  /* Corner notch depth. Deep enough to read as a cut, not a rounded corner. */
+  --notch: 14px;
+
   --font-display: "Bungee", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+}
+
+/* Cuts the top-left and bottom-right corners — the single most load-bearing
+   shape in the UI. Note clip-path also clips outlines, so anything using this
+   must provide focus feedback via an inset ring drawn INSIDE the shape (see
+   .ability-card:focus-visible::after) rather than relying on outline. */
+.notched {
+  clip-path: polygon(
+    var(--notch) 0,
+    100% 0,
+    100% calc(100% - var(--notch)),
+    calc(100% - var(--notch)) 100%,
+    0 100%,
+    0 var(--notch)
+  );
+  border-radius: 0;
 }
 
 * {
@@ -57,6 +159,41 @@ body {
   font-family: var(--font-mono);
 }
 
+/* Grime: grain + claw scoring + a blood-tinted bottom bleed, stamped over a
+   surface via a pseudo-element. pointer-events:none always, and it goes UNDER
+   content (z-index 0 vs content's 1) so no text is ever rendered through it. */
+.grime {
+  position: relative;
+  isolation: isolate;
+}
+
+.grime::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: var(--claw-texture), var(--texture-grain);
+  opacity: 0.16;
+}
+
+/* Blood seeping up from the bottom edge of a panel. */
+.grime::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 40%;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(92, 13, 16, 0.42), transparent);
+  mix-blend-mode: multiply;
+}
+
+.grime > * {
+  position: relative;
+  z-index: 1;
+}
+
 #root {
   min-height: 100vh;
 }
@@ -64,4 +201,21 @@ body {
 :focus-visible {
   outline: 2px solid var(--color-bone);
   outline-offset: 2px;
+}
+
+/* The only motion in the UI is the card press-compression and hover/border
+   transitions. Under reduced-motion those become instant state changes —
+   the emphasis is preserved, the movement is not. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .ability-card:active {
+    transform: none;
+  }
 }

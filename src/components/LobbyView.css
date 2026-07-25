@@ -5,19 +5,47 @@
 }
 
 .lobby__header {
+  --hazard-color: var(--color-bone-dim);
+  position: relative;
   display: flex;
   align-items: baseline;
   gap: 0.75rem;
   padding: 0.85rem 1.5rem;
-  border-bottom: 2px solid var(--color-border);
+  background: var(--color-panel);
+  border-bottom: 4px solid transparent;
+  border-image: var(--hazard-stripes) 4;
 }
 
+.lobby__header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: var(--claw-texture), var(--texture-grain);
+  opacity: 0.16;
+  pointer-events: none;
+}
+
+.lobby__header > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Masthead: skewed, oversized, split-channel misregistration in both lane
+   colours with a blood underprint. */
 .lobby__title {
   font-family: var(--font-display);
-  font-size: 1.4rem;
-  letter-spacing: 0.04em;
+  font-size: 2rem;
+  line-height: 1;
+  letter-spacing: 0.05em;
   color: var(--color-bone);
   margin: 0;
+  transform: skewX(-8deg);
+  text-shadow:
+    2px 0 0 var(--color-bot),
+    -2px 0 0 var(--color-human),
+    3px 3px 0 var(--color-blood),
+    5px 5px 0 var(--color-void);
 }
 
 .lobby__subtitle {
@@ -38,6 +66,10 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
+/* Hazard tape down the centre — the two lanes are opposing machines, and
+   this is the strongest separation in the layout. */
 .lobby__lanes > * + * {
-  border-left: 2px solid var(--color-border);
+  --hazard-color: var(--color-bone-dim);
+  border-left: 6px solid transparent;
+  border-image: var(--hazard-stripes) 6;
 }

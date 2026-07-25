@@ -1,18 +1,68 @@
 .ability-card {
   --category-color: var(--color-bone-dim);
+  --notch: 12px;
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  background: var(--color-panel-raised);
-  border: 2px solid var(--category-color);
-  border-radius: 2px;
+  background:
+    linear-gradient(to bottom, var(--color-panel-raised) 0%, var(--color-void) 78%, var(--color-blood-deep) 100%);
+  /* Heavier border + hard corners: stamped plate, not a rounded card. */
+  border: 4px solid var(--category-color);
   padding: 0.9rem;
   cursor: pointer;
   min-width: 0;
+  isolation: isolate;
+  box-shadow:
+    inset 0 0 0 1px var(--color-void),
+    inset 0 -20px 26px -18px var(--color-blood);
+  /* No transition on press — input feedback must be immediate. */
+  transition: background 100ms linear, border-color 100ms linear;
+}
+
+/* Gouged surface: claw scoring + print grain, under the content layer so no
+   text is ever rendered through texture. */
+.ability-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: var(--claw-texture), var(--texture-grain);
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.ability-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .ability-card:hover {
-  background: var(--color-panel);
+  border-color: var(--color-bone);
+  box-shadow:
+    inset 0 0 0 1px var(--color-void),
+    inset 0 -20px 26px -18px var(--color-blood),
+    0 0 24px -6px rgba(237, 230, 214, 0.35);
+}
+
+/* Immediate compression on press, per the motion rules. */
+.ability-card:active {
+  transform: translateY(1px);
+}
+
+/* clip-path on .notched clips outlines, so focus is drawn as an inset ring
+   INSIDE the clipped shape where it stays fully visible against both the
+   panel fill and the bright category border. */
+.ability-card:focus-visible {
+  outline: none;
+}
+
+.ability-card:focus-visible::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 2px solid var(--color-bone);
+  pointer-events: none;
 }
 
 .ability-card__header {
@@ -26,32 +76,48 @@
   min-width: 0;
 }
 
+/* Mounted hardware: rust-rimmed plate bolted onto the card. */
 .ability-card__sprite {
   image-rendering: pixelated;
   flex-shrink: 0;
   background: var(--color-void);
-  border: 1px solid var(--color-border);
-  padding: 2px;
+  border: 3px solid var(--color-void);
+  outline: 1px solid var(--color-rust);
+  box-shadow:
+    0 0 0 3px var(--color-blood-deep),
+    inset 0 0 14px rgba(0, 0, 0, 0.8);
+  padding: 3px;
 }
 
+/* Warning-label treatment: solid category fill, black text, hard edges, and
+   a hazard rule underneath tying it to the arena's industrial signage. */
 .ability-card__tag {
   align-self: flex-start;
   font-family: var(--font-display);
   font-size: 0.62rem;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   color: var(--color-void);
   background: var(--category-color);
-  padding: 0.15rem 0.4rem;
-  border-radius: 2px;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0;
+  border-left: 3px solid var(--color-void);
 }
 
+/* Skewed, misregistered, oversized — the ability name is the loudest thing
+   on the card and should read like it was stamped on with bad alignment. */
 .ability-card__name {
   font-family: var(--font-display);
-  font-size: 1rem;
-  line-height: 1.3;
+  font-size: 1.25rem;
+  line-height: 1.02;
+  letter-spacing: 0.005em;
   color: var(--color-bone);
   margin: 0;
   overflow-wrap: break-word;
+  text-transform: uppercase;
+  transform: skewX(-6deg);
+  text-shadow:
+    2px 0 0 var(--color-blood),
+    3px 3px 0 var(--color-void);
 }
 
 .ability-card__description {
@@ -61,16 +127,21 @@
   margin: 0;
 }
 
+/* Hazard rule instead of a hairline divider — the stat block reads as a
+   spec plate riveted under the description. */
 .ability-card__stats {
+  --hazard-color: var(--category-color);
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem 0.8rem;
   font-size: 0.72rem;
   color: var(--color-bone);
-  border-top: 1px solid var(--color-border);
+  border-top: 3px solid transparent;
+  border-image: var(--hazard-stripes) 3;
   padding-top: 0.5rem;
 }
 
 .ability-card__stat-label {
   color: var(--color-bone-dim);
+  letter-spacing: 0.06em;
 }

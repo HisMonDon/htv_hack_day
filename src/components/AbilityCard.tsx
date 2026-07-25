@@ -11,7 +11,7 @@ export interface AbilityCardProps {
 export function AbilityCard({ ability, onSelect }: AbilityCardProps) {
   return (
     <div
-      className="ability-card"
+      className="ability-card notched"
       style={{ ["--category-color" as string]: categoryColorVar(ability.category) }}
       onClick={onSelect}
       onKeyDown={(event) => {

@@ -1,49 +1,95 @@
 .pick-overlay {
   position: absolute;
   inset: 0;
+  /* Must clear the arena canvas (z1) and the critical danger tint (z2), both
+     of which are positioned inside .lane__arena. */
+  z-index: 6;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.9rem;
   padding: 1rem;
-  background: rgba(11, 11, 14, 0.92);
+  /* Blood-tinted blackout with a hard vignette — the arena is swallowed, not
+     dimmed. */
+  background:
+    radial-gradient(ellipse at center, rgba(46, 7, 8, 0.82) 0%, rgba(11, 11, 14, 0.985) 70%);
+  backdrop-filter: saturate(0.4) contrast(1.15);
 }
 
 .pick-overlay__frame {
-  border: 4px solid var(--color-human);
+  position: relative;
+  border: 6px solid var(--color-human);
   border-image: repeating-linear-gradient(
       45deg,
       var(--color-human) 0 10px,
       var(--color-void) 10px 20px
     )
-    4;
-  box-shadow: 0 0 20px rgba(var(--glow-human-rgb), 0.5);
-  background: var(--color-panel);
-  padding: 1.1rem;
+    6;
+  box-shadow:
+    0 0 40px -4px rgba(var(--glow-human-rgb), 0.55),
+    0 24px 60px -10px rgba(0, 0, 0, 0.95),
+    inset 0 -30px 40px -30px var(--color-blood);
+  background:
+    linear-gradient(to bottom, var(--color-panel) 0%, var(--color-void) 85%, var(--color-blood-deep) 100%);
+  padding: 1.2rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.9rem;
   max-width: 100%;
+  isolation: isolate;
 }
 
+.pick-overlay__frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: var(--claw-texture), var(--texture-grain);
+  opacity: 0.14;
+}
+
+.pick-overlay__frame > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Slashed, oversized, misregistered — this is a demand, not a prompt. */
 .pick-overlay__title {
   font-family: var(--font-display);
-  font-size: 1rem;
-  letter-spacing: 0.05em;
+  font-size: 1.6rem;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--color-bone);
   margin: 0;
+  transform: skewX(-7deg);
+  text-shadow:
+    3px 0 0 var(--color-blood),
+    -2px 2px 0 rgba(var(--glow-human-rgb), 0.45),
+    4px 4px 0 var(--color-void);
 }
 
 .pick-overlay__timer {
   font-size: 0.8rem;
+  letter-spacing: 0.05em;
   color: var(--color-bone-dim);
 }
 
+/* Final two seconds: the timer becomes a stamped warning label rather than
+   just red text. Escalation is static — no flicker or pulse, so the cards
+   underneath stay readable while you're deciding. */
 .pick-overlay__timer--urgent {
-  color: var(--color-danger);
-  text-shadow: 0 0 4px rgba(var(--glow-danger-rgb), 0.6);
+  color: var(--color-void);
+  background: var(--color-danger);
+  font-family: var(--font-display);
+  padding: 0.15rem 0.5rem;
+  border-left: 4px solid var(--color-void);
+  border-right: 4px solid var(--color-void);
+  text-shadow: none;
+  box-shadow: 0 0 14px rgba(var(--glow-danger-rgb), 0.65);
 }
 
 .pick-overlay__cards {

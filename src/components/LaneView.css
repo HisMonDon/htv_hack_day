@@ -12,27 +12,154 @@
 
 .lane__arena {
   position: relative;
+  /* Takes all height left under the HUD and centres the canvas in it, so the
+     unused space either side of a fixed-size arena reads as deliberate letter-
+     boxing rather than the lane just stopping partway down the screen. */
+  flex: 1;
   display: flex;
   justify-content: center;
+  align-items: center;
   background-color: var(--color-void);
-  background-image: var(--scanline-texture);
-  border-top: 2px solid var(--lane-accent);
-  box-shadow: 0 -6px 16px -8px rgba(var(--lane-glow-rgb), 0.7);
+  /* Layered pit floor, topmost first: scanlines over claw scoring over bolted
+     seams over diamond tread, with the CRT vignette sunk underneath. */
+  background-image:
+    var(--scanline-texture),
+    var(--claw-texture),
+    var(--panel-seams),
+    var(--floor-plate),
+    var(--arena-vignette);
+  border-top: 3px solid var(--lane-accent);
+  box-shadow:
+    0 -6px 20px -8px rgba(var(--lane-glow-rgb), 0.8),
+    inset 0 0 90px 20px rgba(0, 0, 0, 0.9);
   padding: 0.75rem;
 }
 
+/* Corrosion creeping out of the corners of the bay. Sits under the canvas. */
+.lane__arena::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: var(--corner-rot);
+}
+
+/* Danger overlay — inert at full health, bleeds red inward as the lane takes
+   damage. Owns its own layer so the arena's static texture never has to move.
+   Driven by .lane--wounded / .lane--critical (see below). */
+.lane__arena::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 30%,
+    rgba(var(--glow-danger-rgb), 0.16) 68%,
+    rgba(var(--glow-danger-rgb), 0.42) 100%
+  );
+  transition: opacity 260ms linear;
+}
+
+/* The cabinet bezel: thick blood-rimmed frame around the play surface.
+   z-index lifts it above the corner-rot layer painted by ::before. */
 .lane__canvas {
+  position: relative;
+  z-index: 1;
   image-rendering: pixelated;
-  border: 2px solid var(--color-border);
+  border: 3px solid var(--color-void);
+  outline: 1px solid var(--color-rust);
   max-width: 100%;
   height: auto;
+  box-shadow:
+    0 0 0 4px var(--color-blood-deep),
+    0 0 26px -4px rgba(var(--lane-glow-rgb), 0.4),
+    inset 0 0 60px rgba(0, 0, 0, 0.6);
+  transition: box-shadow 260ms linear;
+}
+
+/* ── Damage states ─────────────────────────────────────────────────────────
+   Two tiers so "hurt" and "about to die" are distinguishable at a glance.
+   Both are additive on top of the HP bar and numeric readout — never the
+   only signal. */
+
+/* Wounded (<=50%): red starts bleeding in from the edges of the bay. */
+.lane--wounded .lane__arena::after {
+  opacity: 0.75;
+}
+
+.lane--wounded .lane__canvas {
+  box-shadow:
+    0 0 0 4px var(--color-blood),
+    0 0 30px -4px rgba(var(--glow-danger-rgb), 0.35),
+    inset 0 0 60px rgba(0, 0, 0, 0.6);
+}
+
+/* Critical (<=25%): the whole bay goes hostile. The pulse is slow and
+   opacity-only — it must not obscure enemies or hit confirmation. */
+.lane--critical .lane__arena::after {
+  opacity: 1;
+  /* Ramp stays clear across the play surface and only goes hot past the
+     bezel, so enemies and hit flashes are never read through heavy red. */
+  background: radial-gradient(
+    ellipse at center,
+    transparent 26%,
+    rgba(var(--glow-danger-rgb), 0.13) 56%,
+    rgba(var(--glow-danger-rgb), 0.38) 78%,
+    rgba(var(--glow-danger-rgb), 0.66) 100%
+  );
+  animation: lane-critical-pulse 1100ms ease-in-out infinite;
+}
+
+.lane--critical .lane__arena {
+  border-top-color: var(--color-danger);
+  box-shadow:
+    0 -6px 26px -6px rgba(var(--glow-danger-rgb), 0.9),
+    inset 0 0 90px 20px rgba(0, 0, 0, 0.9);
+}
+
+.lane--critical .lane__canvas {
+  outline-color: var(--color-danger);
+  box-shadow:
+    0 0 0 4px var(--color-danger),
+    0 0 44px -2px rgba(var(--glow-danger-rgb), 0.65),
+    inset 0 0 60px rgba(0, 0, 0, 0.6);
+}
+
+@keyframes lane-critical-pulse {
+  0%,
+  100% {
+    opacity: 0.62;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Reduced motion: keep the danger reading, drop the throb. */
+@media (prefers-reduced-motion: reduce) {
+  .lane--critical .lane__arena::after {
+    animation: none;
+    opacity: 0.9;
+  }
 }
 
 .lane__mutant-trait { position:absolute; top:1rem; right:1rem; margin:0; padding:.48rem .62rem; color:#e9d7ff; background:linear-gradient(135deg,rgba(45,18,67,.94),rgba(18,10,29,.9)); border:1px solid #b77aff; border-left:4px solid #d9b4ff; box-shadow:0 0 18px rgba(183,122,255,.32); font-size:.57rem; font-weight:700; letter-spacing:.08em; }.lane__mutant-trait strong { display:block; margin-top:.18rem; color:#fff; font-family:var(--font-display); font-size:.72rem; }
 
+/* Lifted above the canvas (z1) and the critical danger tint (z2) so the
+   mutant readout stays legible when a lane is bleeding out. */
+.lane__mutant-trait {
+  z-index: 4;
+}
+
 .lane__status {
   position: absolute;
   inset: 0;
+  /* Above the canvas (z1) and the danger tint (z2) — see .lane__canvas. */
+  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -43,11 +170,20 @@
   background: rgba(11, 11, 14, 0.85);
 }
 
+/* Defeat is the loudest single moment in a match — oversized, skewed, and
+   bled into the void behind it. */
 .lane__status--defeated {
   color: var(--color-danger);
   font-family: var(--font-display);
-  font-size: 0.9rem;
-  text-shadow: 0 0 4px rgba(var(--glow-danger-rgb), 0.6);
+  font-size: 2rem;
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+  transform: skewX(-7deg);
+  text-shadow:
+    3px 0 0 var(--color-blood),
+    -3px 3px 0 var(--color-blood-deep),
+    5px 5px 0 var(--color-void),
+    0 0 30px rgba(var(--glow-danger-rgb), 0.7);
 }
 
 .lane__status--waiting {
