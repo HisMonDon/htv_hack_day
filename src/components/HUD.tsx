@@ -19,7 +19,7 @@ export function HUD({ laneState }: HUDProps) {
   return (
     <div className={`hud hud--${laneState.laneType}`}>
       <div className="hud__top">
-        <span className="hud__lane-tag notched">{laneState.laneType}</span>
+        <span className="hud__lane-tag">{laneState.laneType}</span>
         <span className="hud__wave">WAVE {laneState.waveNumber}</span>
         <span className="hud__timer">{laneState.survivalTimeSeconds}s survived</span>
       </div>
@@ -50,7 +50,7 @@ export function HUD({ laneState }: HUDProps) {
           return (
             <div
               key={index}
-              className={`hud__ability notched ${isReady ? "hud__ability--ready" : ""}`}
+              className={`hud__ability ${isReady ? "hud__ability--ready" : ""}`}
               style={{ ["--category-color" as string]: categoryColor }}
             >
               <SpriteCanvas sprite={ability.sprite} scale={1} className="hud__ability-sprite" />

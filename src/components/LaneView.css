@@ -4,6 +4,8 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .lane--bot {
@@ -13,213 +15,40 @@
 
 .lane__arena {
   position: relative;
-  /* Takes all height left under the HUD and centres the canvas in it, so the
-     unused space either side of a fixed-size arena reads as deliberate letter-
-     boxing rather than the lane just stopping partway down the screen. */
   flex: 1;
   min-height: 0;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: var(--color-void);
-  /* Layered pit floor, topmost first: scanlines over claw scoring over bolted
-     seams over diamond tread, with the CRT vignette sunk underneath. */
-  background-image:
-    var(--scanline-texture),
-    var(--claw-texture),
-    var(--panel-seams),
-    var(--floor-plate),
-    var(--arena-vignette);
+  background-image: var(--scanline-texture), radial-gradient(ellipse at center, rgba(var(--lane-glow-rgb), 0.14), transparent 70%);
   border-top: 3px solid var(--lane-accent);
   box-shadow:
-    0 -6px 20px -8px rgba(var(--lane-glow-rgb), 0.8),
-    inset 0 0 90px 20px rgba(0, 0, 0, 0.9);
+    0 -8px 28px -6px rgba(var(--lane-glow-rgb), 0.85),
+    inset 0 0 60px rgba(var(--lane-glow-rgb), 0.1);
   padding: 0.75rem;
 }
 
-/* Corrosion creeping out of the corners of the bay. Sits under the canvas. */
-.lane__arena::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image: var(--corner-rot);
-}
-
-/* Danger overlay — inert at full health, bleeds red inward as the lane takes
-   damage. Owns its own layer so the arena's static texture never has to move.
-   Driven by .lane--wounded / .lane--critical (see below). */
-.lane__arena::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  opacity: 0;
-  background: radial-gradient(
-    ellipse at center,
-    transparent 30%,
-    rgba(var(--glow-danger-rgb), 0.16) 68%,
-    rgba(var(--glow-danger-rgb), 0.42) 100%
-  );
-  transition: opacity 260ms linear;
-}
-
-/* The cabinet bezel: thick blood-rimmed frame around the play surface.
-   z-index lifts it above the corner-rot layer painted by ::before. */
 .lane__canvas {
-  position: relative;
-  z-index: 1;
   image-rendering: pixelated;
-  border: 3px solid var(--color-void);
-  outline: 1px solid var(--color-rust);
+  border: 2px solid var(--color-border);
+  box-shadow: 0 0 32px rgba(var(--lane-glow-rgb), 0.35);
   width: 100%;
-  height: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  box-shadow:
-    0 0 0 4px var(--color-blood-deep),
-    0 0 26px -4px rgba(var(--lane-glow-rgb), 0.4),
-    inset 0 0 60px rgba(0, 0, 0, 0.6);
-  transition: box-shadow 260ms linear;
 }
+.lane__mutant-roster { position:absolute; z-index:3; top:1rem; left:1rem; display:grid; gap:.22rem; width:min(10.5rem,42%); padding:.5rem .6rem; color:var(--color-bone); background:rgba(11,11,14,.82); border:1px solid var(--color-border); border-left:3px solid var(--lane-accent); box-shadow:0 0 16px rgba(var(--lane-glow-rgb),.18); font-size:.56rem; line-height:1.25; pointer-events:none; }.lane__mutant-kicker { color:var(--lane-accent); font-size:.52rem; font-weight:700; letter-spacing:.08em; }.lane__mutant-theme { overflow:hidden; color:var(--color-bone); font-size:.62rem; text-overflow:ellipsis; white-space:nowrap; }.lane__mutant-type { overflow:hidden; color:var(--color-bone-dim); text-overflow:ellipsis; white-space:nowrap; }.lane__mutant-type small { display:block; overflow:hidden; margin-top:.08rem; color:var(--color-bone); font-size:.5rem; text-overflow:ellipsis; white-space:nowrap; }
 .lane__aura { position:absolute; inset:.75rem; overflow:hidden; pointer-events:none; animation:aura-fade .8s linear both; }.lane__aura i { position:absolute; left:calc((var(--n) * 7.7%) + 1%); bottom:-8px; width:12px; height:22px; background:var(--aura-main); transform:rotate(calc(var(--n) * 19deg)); }.lane__aura--offense { --aura-main:#ff5a35; box-shadow:inset 0 0 20px rgba(255,66,33,.48); }.lane__aura--offense i { border-radius:70% 30% 65% 35%; box-shadow:0 -8px #ffcf4a,0 0 12px #ff522f; animation:fire-rise .55s calc(var(--n) * -45ms) ease-out both; }.lane__aura--defense { --aura-main:#9eeeff; box-shadow:inset 0 0 20px rgba(111,210,255,.43); }.lane__aura--defense i { width:9px; height:16px; bottom:auto; top:-5px; clip-path:polygon(50% 0,100% 100%,50% 82%,0 100%); box-shadow:0 0 8px #a9efff; animation:ice-fall .7s calc(var(--n) * -38ms) linear both; }.lane__aura--mobility { --aura-main:#71caff; }.lane__aura--mobility i { height:4px; width:44px; animation:dash-streak .5s calc(var(--n) * -30ms) linear both; }.lane__aura--utility { --aura-main:#6df0ad; }.lane__aura--utility i { border-radius:50%; width:10px; height:10px; animation:orb-float .65s calc(var(--n) * -35ms) ease-out both; } @keyframes aura-fade { 0%,65%{opacity:1}100%{opacity:0} } @keyframes fire-rise { from{transform:translateY(0) scale(.6) rotate(calc(var(--n)*19deg));opacity:1}to{transform:translateY(-68px) scale(1.4) rotate(calc(var(--n)*19deg));opacity:0} } @keyframes ice-fall { from{transform:translateY(0) rotate(0);opacity:1}to{transform:translateY(74px) rotate(180deg);opacity:0} } @keyframes dash-streak { from{transform:translateX(-55px);opacity:0}25%{opacity:1}to{transform:translateX(90px);opacity:0} } @keyframes orb-float { from{transform:translateY(0) scale(.5);opacity:1}to{transform:translateY(-55px) scale(1.5);opacity:0} }
 
-/* ── Damage states ─────────────────────────────────────────────────────────
-   Two tiers so "hurt" and "about to die" are distinguishable at a glance.
-   Both are additive on top of the HP bar and numeric readout — never the
-   only signal. */
-
-/* Wounded (<=50%): red starts bleeding in from the edges of the bay. */
-.lane--wounded .lane__arena::after {
-  opacity: 0.75;
-}
-
-.lane--wounded .lane__canvas {
-  box-shadow:
-    0 0 0 4px var(--color-blood),
-    0 0 30px -4px rgba(var(--glow-danger-rgb), 0.35),
-    inset 0 0 60px rgba(0, 0, 0, 0.6);
-}
-
-/* Critical (<=25%): the whole bay goes hostile. The pulse is slow and
-   opacity-only — it must not obscure enemies or hit confirmation. */
-.lane--critical .lane__arena::after {
-  opacity: 1;
-  /* Ramp stays clear across the play surface and only goes hot past the
-     bezel, so enemies and hit flashes are never read through heavy red. */
-  background: radial-gradient(
-    ellipse at center,
-    transparent 26%,
-    rgba(var(--glow-danger-rgb), 0.13) 56%,
-    rgba(var(--glow-danger-rgb), 0.38) 78%,
-    rgba(var(--glow-danger-rgb), 0.66) 100%
-  );
-  animation: lane-critical-pulse 1100ms ease-in-out infinite;
-}
-
-.lane--critical .lane__arena {
-  border-top-color: var(--color-danger);
-  box-shadow:
-    0 -6px 26px -6px rgba(var(--glow-danger-rgb), 0.9),
-    inset 0 0 90px 20px rgba(0, 0, 0, 0.9);
-}
-
-.lane--critical .lane__canvas {
-  outline-color: var(--color-danger);
-  box-shadow:
-    0 0 0 4px var(--color-danger),
-    0 0 44px -2px rgba(var(--glow-danger-rgb), 0.65),
-    inset 0 0 60px rgba(0, 0, 0, 0.6);
-}
-
-@keyframes lane-critical-pulse {
-  0%,
-  100% {
-    opacity: 0.62;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-/* Reduced motion: keep the danger reading, drop the throb. */
-@media (prefers-reduced-motion: reduce) {
-  .lane--critical .lane__arena::after {
-    animation: none;
-    opacity: 0.9;
-  }
-}
-
-.lane__mutant-roster {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  z-index: 1;
-  display: grid;
-  gap: 0.28rem;
-  max-width: min(52%, 15rem);
-  margin: 0;
-  padding: 0.55rem 0.65rem;
-  color: #e9d7ff;
-  background: rgba(18, 10, 29, 0.9);
-  border: 1px solid #b77aff;
-  border-left: 4px solid #d9b4ff;
-  box-shadow: 0 0 18px rgba(183, 122, 255, 0.32);
-  pointer-events: none;
-}
-
-.lane__mutant-kicker {
-  color: #d9b4ff;
-  font-size: 0.52rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-}
-
-.lane__mutant-theme {
-  overflow: hidden;
-  color: #fff;
-  font-family: var(--font-display);
-  font-size: 0.68rem;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.lane__mutant-type {
-  display: flex;
-  min-width: 0;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.45rem;
-  padding-top: 0.22rem;
-  border-top: 1px solid rgba(217, 180, 255, 0.25);
-  font-size: 0.57rem;
-  font-weight: 700;
-}
-
-.lane__mutant-type small {
-  overflow: hidden;
-  color: var(--color-bone-dim);
-  font-size: 0.5rem;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Lifted above the canvas (z1) and the critical danger tint (z2) so the
-   mutant readout stays legible when a lane is bleeding out. */
-.lane__mutant-trait {
-  z-index: 4;
-}
+.lane__mutant-trait { position:absolute; top:1rem; right:1rem; margin:0; padding:.48rem .62rem; color:#e9d7ff; background:linear-gradient(135deg,rgba(45,18,67,.94),rgba(18,10,29,.9)); border:1px solid #b77aff; border-left:4px solid #d9b4ff; box-shadow:0 0 18px rgba(183,122,255,.32); font-size:.57rem; font-weight:700; letter-spacing:.08em; }.lane__mutant-trait strong { display:block; margin-top:.18rem; color:#fff; font-family:var(--font-display); font-size:.72rem; }
 
 .lane__status {
   position: absolute;
   inset: 0;
-  /* Above the canvas (z1) and the danger tint (z2) — see .lane__canvas. */
-  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -230,22 +59,14 @@
   background: rgba(11, 11, 14, 0.85);
 }
 
-/* Defeat is the loudest single moment in a match — oversized, skewed, and
-   bled into the void behind it. */
 .lane__status--defeated {
   color: var(--color-danger);
   font-family: var(--font-display);
-  font-size: 2rem;
-  line-height: 1.05;
-  letter-spacing: 0.04em;
-  transform: skewX(-7deg);
-  text-shadow:
-    3px 0 0 var(--color-blood),
-    -3px 3px 0 var(--color-blood-deep),
-    5px 5px 0 var(--color-void),
-    0 0 30px rgba(var(--glow-danger-rgb), 0.7);
+  font-size: 0.9rem;
+  text-shadow: 0 0 4px rgba(var(--glow-danger-rgb), 0.6);
 }
 
 .lane__status--waiting {
   color: var(--color-bone-dim);
 }
+@media (max-width: 760px) { .lobby { min-height:0; }.lobby__header { padding:.55rem .8rem; }.lobby__title { font-size:1.25rem; }.lobby__subtitle { display:none; }.lane__arena { padding:.4rem; }.lane__mutant-roster { top:.6rem; left:.6rem; width:min(8.5rem,54%); padding:.36rem .45rem; }.lane__mutant-type:nth-of-type(n+4) { display:none; } }

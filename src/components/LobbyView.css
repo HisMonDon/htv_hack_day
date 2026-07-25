@@ -1,51 +1,27 @@
 .lobby {
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 34rem;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .lobby__header {
-  --hazard-color: var(--color-bone-dim);
-  position: relative;
   display: flex;
   align-items: baseline;
   gap: 0.75rem;
   padding: 0.85rem 1.5rem;
-  border-bottom: 4px solid transparent;
-  border-image: var(--hazard-stripes) 4;
+  border-bottom: 2px solid var(--color-border);
   background: linear-gradient(180deg, var(--color-panel), var(--color-void));
 }
 
-.lobby__header::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background-image: var(--claw-texture), var(--texture-grain);
-  opacity: 0.16;
-  pointer-events: none;
-}
-
-.lobby__header > * {
-  position: relative;
-  z-index: 1;
-}
-
-/* Masthead: skewed, oversized, split-channel misregistration in both lane
-   colours with a blood underprint. */
 .lobby__title {
   font-family: var(--font-display);
-  font-size: 2rem;
-  line-height: 1;
+  font-size: 1.7rem;
   letter-spacing: 0.05em;
   color: var(--color-bone);
   margin: 0;
-  transform: skewX(-8deg);
   text-shadow:
-    2px 0 0 var(--color-bot),
-    -2px 0 0 var(--color-human),
-    3px 3px 0 var(--color-blood),
-    5px 5px 0 var(--color-void),
     0 0 10px rgba(var(--glow-human-rgb), 0.55),
     0 0 22px rgba(var(--glow-bot-rgb), 0.35);
 }
@@ -71,12 +47,9 @@
      content instead of filling .lobby__lanes's full (definite) height —
      that's what left the bottom half of the viewport empty. */
   grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
 }
 
-/* Hazard tape down the centre — the two lanes are opposing machines, and
-   this is the strongest separation in the layout. */
 .lobby__lanes > * + * {
-  --hazard-color: var(--color-bone-dim);
-  border-left: 6px solid transparent;
-  border-image: var(--hazard-stripes) 6;
+  border-left: 2px solid var(--color-border);
 }

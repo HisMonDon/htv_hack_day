@@ -1,20 +1,10 @@
 .hud {
   --lane-accent: var(--color-human);
   --lane-glow-rgb: var(--glow-human-rgb);
-  --hazard-color: var(--lane-accent);
-  padding: 0.75rem 1rem 0.85rem;
-  /* Panel over a blood underlayer — the surface reads as something that has
-     been bled on, not painted. */
-  background:
-    linear-gradient(to bottom, var(--color-panel) 0%, var(--color-blood-deep) 190%);
-  /* Hazard tape along the lane boundary rather than a plain rule — this is
-     the loudest structural edge in the layout, so it carries the signage. */
-  border-bottom: 5px solid transparent;
-  border-image: var(--hazard-stripes) 5;
-  box-shadow:
-    0 6px 20px -8px rgba(var(--lane-glow-rgb), 0.75),
-    inset 0 -14px 20px -14px var(--color-blood),
-    inset 0 2px 0 rgba(237, 230, 214, 0.07);
+  padding: 0.75rem 1rem;
+  background: var(--color-panel);
+  border-bottom: 2px solid var(--lane-accent);
+  box-shadow: 0 6px 16px -8px rgba(var(--lane-glow-rgb), 0.7);
 }
 
 .hud--bot {
@@ -30,36 +20,25 @@
 }
 
 .hud__lane-tag {
-  --notch: 6px;
   font-family: var(--font-display);
   font-size: 0.7rem;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--color-void);
   background: var(--lane-accent);
-  padding: 0.2rem 0.55rem;
-  border-radius: 0;
+  padding: 0.2rem 0.5rem;
+  border-radius: 2px;
   box-shadow: 0 0 8px rgba(var(--lane-glow-rgb), 0.55);
 }
 
-/* Wave number is a stamped serial, not a caption — oversized, skewed off
-   axis, with hard misregistered offsets in blood and lane colour. */
 .hud__wave {
   font-family: var(--font-display);
-  font-size: 1.35rem;
+  font-size: 0.85rem;
   color: var(--color-bone);
-  letter-spacing: 0.02em;
-  transform: skewX(-8deg);
-  text-shadow:
-    2px 0 0 var(--color-blood),
-    -2px 2px 0 rgba(var(--lane-glow-rgb), 0.5),
-    3px 3px 0 var(--color-void);
+  letter-spacing: 0.03em;
 }
 
 .hud__timer {
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.75rem;
   color: var(--color-bone-dim);
 }
 
@@ -70,40 +49,24 @@
   margin-bottom: 0.6rem;
 }
 
-/* Empty track is exposed wound, not empty space: dried blood under a hard
-   black rim, so damage taken reads as something torn open. */
 .hud__hp-bar {
-  position: relative;
   flex: 1;
-  height: 16px;
-  background:
-    linear-gradient(to bottom, var(--color-blood-deep), var(--color-blood));
-  border: 2px solid var(--color-void);
-  border-radius: 0;
+  height: 10px;
+  background: var(--color-void);
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
   overflow: hidden;
-  box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, 0.8),
-    inset 0 3px 6px rgba(0, 0, 0, 0.75);
 }
 
-/* Ragged right edge — the fill is torn, not cut. */
 .hud__hp-fill {
   height: 100%;
   background: var(--lane-accent);
-  box-shadow:
-    0 0 10px rgba(var(--lane-glow-rgb), 0.7),
-    inset 0 -4px 6px -3px rgba(0, 0, 0, 0.6);
-  clip-path: polygon(
-    0 0, calc(100% - 5px) 0, 100% 22%, calc(100% - 4px) 48%,
-    100% 74%, calc(100% - 5px) 100%, 0 100%
-  );
+  box-shadow: 0 0 6px rgba(var(--lane-glow-rgb), 0.6);
 }
 
 .hud__hp-fill--low {
   background: var(--color-danger);
-  box-shadow:
-    0 0 12px rgba(var(--glow-danger-rgb), 0.8),
-    inset 0 -4px 6px -3px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 6px rgba(var(--glow-danger-rgb), 0.65);
 }
 
 .hud__hp-text {
@@ -115,49 +78,7 @@
 
 .hud__hp-text--low {
   color: var(--color-danger);
-  font-family: var(--font-display);
-  text-shadow:
-    2px 0 0 var(--color-blood-deep),
-    0 0 12px rgba(var(--glow-danger-rgb), 0.85);
-}
-
-/* ── Lane damage states cascade into the HUD ───────────────────────────────
-   Set by LaneView so the header reacts along with the arena instead of the
-   HP bar being the only thing that changes. */
-
-.lane--wounded .hud {
-  --hazard-color: var(--color-danger);
-  box-shadow:
-    0 6px 20px -8px rgba(var(--glow-danger-rgb), 0.55),
-    inset 0 -14px 22px -12px var(--color-blood),
-    inset 0 2px 0 rgba(237, 230, 214, 0.07);
-}
-
-.lane--critical .hud {
-  --hazard-color: var(--color-danger);
-  background: linear-gradient(to bottom, #241315 0%, var(--color-blood-deep) 180%);
-  box-shadow:
-    0 6px 26px -6px rgba(var(--glow-danger-rgb), 0.8),
-    inset 0 -18px 30px -12px var(--color-blood),
-    inset 0 2px 0 rgba(255, 46, 46, 0.22);
-}
-
-/* The wave serial stops being lane-coloured and starts bleeding. */
-.lane--critical .hud__wave {
-  color: var(--color-danger);
-  text-shadow:
-    2px 0 0 var(--color-blood-deep),
-    -2px 2px 0 var(--color-blood),
-    3px 3px 0 var(--color-void),
-    0 0 18px rgba(var(--glow-danger-rgb), 0.6);
-}
-
-.lane--critical .hud__hp-bar {
-  border-color: var(--color-danger);
-  box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, 0.8),
-    inset 0 3px 6px rgba(0, 0, 0, 0.75),
-    0 0 16px -2px rgba(var(--glow-danger-rgb), 0.7);
+  text-shadow: 0 0 4px rgba(var(--glow-danger-rgb), 0.6);
 }
 
 .hud__abilities {
@@ -166,7 +87,6 @@
 }
 
 .hud__ability {
-  --notch: 8px;
   flex: 1;
   /* Lets the ability name's text-overflow: ellipsis actually engage instead
      of the chip refusing to shrink below its min-content width. */
@@ -174,30 +94,20 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.4rem 0.5rem;
-  background:
-    linear-gradient(to bottom, var(--color-panel-raised), var(--color-void));
-  border: 3px solid var(--category-color, var(--color-border));
-  border-radius: 0;
-  box-shadow: inset 0 -8px 12px -8px var(--color-blood-deep);
+  padding: 0.3rem 0.4rem;
+  background: var(--color-panel-raised);
+  border: 2px solid var(--category-color, var(--color-border));
+  border-radius: 2px;
   /* Cooldown = inert: fully desaturated and dimmed, glow removed. Ready is
      the loud state, not this one. */
-  filter: grayscale(0.9) brightness(0.5);
-  opacity: 0.7;
+  filter: grayscale(0.85) brightness(0.65);
+  opacity: 0.75;
 }
 
-/* Ready is the loudest recurring state change in the game — full saturation,
-   lane-colored energy, and a hard inset rim so it reads as a live switch even
-   at a glance. Cooldown is still communicated by the meter below, never by
-   color alone. */
 .hud__ability--ready {
   filter: none;
   opacity: 1;
-  border-color: var(--lane-accent);
-  box-shadow:
-    0 0 20px rgba(var(--lane-glow-rgb), 0.75),
-    inset 0 0 14px -4px rgba(var(--lane-glow-rgb), 0.55),
-    inset 0 0 0 1px rgba(var(--lane-glow-rgb), 0.5);
+  box-shadow: 0 0 10px rgba(var(--lane-glow-rgb), 0.55);
 }
 
 .hud__ability-sprite {
@@ -207,20 +117,17 @@
   height: 16px;
 }
 
-/* Keycap: square, hard-edged, black-on-color. Reads as a physical cabinet
-   button rather than a rounded badge. */
 .hud__ability-key {
   font-family: var(--font-display);
   font-size: 0.7rem;
   color: var(--color-void);
   background: var(--category-color, var(--color-bone-dim));
-  width: 1.35rem;
-  height: 1.35rem;
+  width: 1.3rem;
+  height: 1.3rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0;
-  box-shadow: inset -2px -2px 0 rgba(11, 11, 14, 0.45);
+  border-radius: 2px;
   flex-shrink: 0;
 }
 
@@ -231,8 +138,6 @@
 
 .hud__ability-name {
   font-size: 0.68rem;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
   color: var(--color-bone);
   white-space: nowrap;
   overflow: hidden;
@@ -240,12 +145,11 @@
 }
 
 .hud__ability-cd-track {
-  height: 5px;
+  height: 4px;
   background: var(--color-void);
-  border-radius: 0;
-  box-shadow: inset 0 0 0 1px rgba(237, 230, 214, 0.12);
+  border-radius: 2px;
   overflow: hidden;
-  margin-top: 0.25rem;
+  margin-top: 0.2rem;
 }
 
 .hud__ability-cd-fill {

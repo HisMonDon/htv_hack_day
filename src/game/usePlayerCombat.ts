@@ -5,7 +5,6 @@ import type {
   LanePhase,
   LaneType,
   PlayerEntity,
-  SpriteData,
   ZombieWavePlan,
 } from "./types";
 import {
@@ -22,7 +21,6 @@ import { createPlayerEntity } from "./playerEntity";
 import { useCombatEffects } from "./useCombatEffects";
 import { useEnemies } from "./useEnemies";
 import { usePlayerMovement } from "./usePlayerMovement";
-import { renderPixelArt } from "./renderPixelArt";
 
 const ABILITY_KEYS: Record<string, 0 | 1> = { j: 0, k: 1 };
 const BOT_MOVE_SPEED_PX = 80;
@@ -96,20 +94,24 @@ const COLOR_GRID = "rgba(237, 230, 214, 0.05)";
 const COLOR_TARGET = "#5a5d66";
 
 const GRID_SPACING_PX = CANVAS_SCALE * 2;
-const zombieSpriteCache = new WeakMap<SpriteData, HTMLCanvasElement>();
+const ZOMBIE_COLORS = ["#91c96b", "#d87556", "#7c9fd8", "#c18ad6", "#d6b45e"];
 
-function cachedZombieSprite(sprite: SpriteData): HTMLCanvasElement {
-  const cached = zombieSpriteCache.get(sprite);
-  if (cached) return cached;
+function zombieVisual(enemy: Enemy): { color: string; radius: number } {
+  let hash = 0;
+  for (const character of enemy.archetypeId) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  const healthTier = Math.min(3, Math.floor(enemy.maxHp / 35));
+  return {
+    color: ZOMBIE_COLORS[hash % ZOMBIE_COLORS.length],
+    radius: 8 + (hash % 3) * 3 + healthTier * 2,
+  };
+}
 
-  const scale = 2;
-  const canvas = document.createElement("canvas");
-  canvas.width = sprite.width * scale;
-  canvas.height = sprite.height * scale;
-  const context = canvas.getContext("2d");
-  if (context) renderPixelArt(context, sprite, scale);
-  zombieSpriteCache.set(sprite, canvas);
-  return canvas;
+type BotMoveMode = "approach" | "orbit" | "retreat";
+
+interface BotSteering {
+  mode: BotMoveMode;
+  direction: { x: number; y: number };
+  orbitSign: 1 | -1;
 }
 
 function drawEnemyAbilityEffect(
@@ -322,6 +324,12 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
 
   const movementActionRef = useRef<MovementAction | null>(null);
   const hasteRef = useRef<{ multiplier: number; until: number }>({ multiplier: 1, until: 0 });
+  const botTargetIdRef = useRef<string | null>(null);
+  const botSteeringRef = useRef<BotSteering>({
+    mode: "approach",
+    direction: { x: 0, y: 1 },
+    orbitSign: 1,
+  });
 
   // Called at both activation sites (human keydown, bot auto-fire) right
   // after an ability actually fires — resolves its movementBehavior/status
@@ -385,8 +393,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
       const ctx = canvas?.getContext("2d");
       if (!canvas || !ctx) return;
 
-      // Pixel-art hygiene: no interpolation when sprites eventually land here.
-      ctx.imageSmoothingEnabled = false;
+      ctx.imageSmoothingEnabled = true;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       drawArenaFloor(ctx, canvas.width, canvas.height);
 
@@ -404,10 +411,20 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
         if (!enemy.alive) continue;
         const x = enemy.x * CANVAS_SCALE;
         const y = enemy.y * CANVAS_SCALE;
-        const sprite = cachedZombieSprite(enemy.sprite);
-        const left = Math.round(x - sprite.width / 2);
-        const top = Math.round(y - sprite.height / 2);
-        ctx.drawImage(sprite, left, top);
+        const visual = zombieVisual(enemy);
+        const radius = visual.radius;
+        const top = y - radius;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = visual.color;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = COLOR_VOID;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x - radius * 0.28, y - radius * 0.28, Math.max(2, radius * 0.22), 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+        ctx.fill();
 
         const isStunned = !!enemy.stunnedUntil && enemy.stunnedUntil > now;
         const isFlashed = !!enemy.flashUntil && enemy.flashUntil > now;
@@ -418,10 +435,12 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
               ? "#fff8b0"
               : "#ffe066";
           ctx.lineWidth = 2;
-          ctx.strokeRect(left - 1, top - 1, sprite.width + 2, sprite.height + 2);
+          ctx.beginPath();
+          ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
+          ctx.stroke();
         }
 
-        const barWidth = Math.max(20, sprite.width);
+        const barWidth = Math.max(20, radius * 2);
         const hpFraction = Math.max(0, Math.min(1, enemy.hp / enemy.maxHp));
         ctx.fillStyle = "#2a1111";
         ctx.fillRect(x - barWidth / 2, top - 6, barWidth, 4);
@@ -490,14 +509,17 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
             player.facingDirection = { x: move.x, y: move.y };
           }
         } else {
-          const nearestEnemy = enemiesRef.current
-            .filter((enemy) => enemy.alive)
-            .reduce<Enemy | null>((nearest, enemy) => {
+          const livingEnemies = enemiesRef.current.filter((enemy) => enemy.alive);
+          let nearestEnemy = livingEnemies.find((enemy) => enemy.id === botTargetIdRef.current) ?? null;
+          if (!nearestEnemy) {
+            nearestEnemy = livingEnemies.reduce<Enemy | null>((nearest, enemy) => {
               if (!nearest) return enemy;
               const enemyDistance = Math.hypot(enemy.x - player.x, enemy.y - player.y);
               const nearestDistance = Math.hypot(nearest.x - player.x, nearest.y - player.y);
               return enemyDistance < nearestDistance ? enemy : nearest;
             }, null);
+            botTargetIdRef.current = nearestEnemy?.id ?? null;
+          }
 
           if (nearestEnemy) {
             const dx = nearestEnemy.x - player.x;
@@ -505,12 +527,22 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
             const distance = Math.hypot(dx, dy);
             if (distance > 0) {
               const distancePx = distance * CANVAS_SCALE;
+              const steering = botSteeringRef.current;
+              if (steering.mode === "retreat") {
+                if (distancePx > BOT_RETREAT_DISTANCE_PX + 18) steering.mode = "orbit";
+              } else if (steering.mode === "approach") {
+                if (distancePx < BOT_APPROACH_DISTANCE_PX - 18) steering.mode = "orbit";
+              } else if (distancePx < BOT_RETREAT_DISTANCE_PX - 12) {
+                steering.mode = "retreat";
+              } else if (distancePx > BOT_APPROACH_DISTANCE_PX + 12) {
+                steering.mode = "approach";
+              }
               const baseDirection =
-                distancePx < BOT_RETREAT_DISTANCE_PX
+                steering.mode === "retreat"
                   ? { x: -dx / distance, y: -dy / distance }
-                  : distancePx > BOT_APPROACH_DISTANCE_PX
+                  : steering.mode === "approach"
                     ? { x: dx / distance, y: dy / distance }
-                    : { x: -dy / distance, y: dx / distance };
+                    : { x: (-dy / distance) * steering.orbitSign, y: (dx / distance) * steering.orbitSign };
               let moveX = baseDirection.x;
               let moveY = baseDirection.y;
               const playerXPx = player.x * CANVAS_SCALE;
@@ -520,8 +552,14 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
               if (playerYPx < BOT_EDGE_BIAS_PX) moveY += 0.75;
               if (playerYPx > ARENA_HEIGHT * CANVAS_SCALE - BOT_EDGE_BIAS_PX) moveY -= 0.75;
               const moveLength = Math.hypot(moveX, moveY) || 1;
-              const direction = { x: moveX / moveLength, y: moveY / moveLength };
-              const speedScale = distancePx < BOT_RETREAT_DISTANCE_PX ? 1 : 0.65;
+              const desiredDirection = { x: moveX / moveLength, y: moveY / moveLength };
+              const turnSmoothing = 0.18;
+              const smoothX = steering.direction.x * (1 - turnSmoothing) + desiredDirection.x * turnSmoothing;
+              const smoothY = steering.direction.y * (1 - turnSmoothing) + desiredDirection.y * turnSmoothing;
+              const smoothLength = Math.hypot(smoothX, smoothY) || 1;
+              const direction = { x: smoothX / smoothLength, y: smoothY / smoothLength };
+              steering.direction = direction;
+              const speedScale = steering.mode === "retreat" ? 1 : 0.65;
               const step = (BOT_MOVE_SPEED_PX / CANVAS_SCALE) * speedScale * hasteMultiplier * deltaSeconds;
               const next = clampToArena(
                 player.x + direction.x * step,
