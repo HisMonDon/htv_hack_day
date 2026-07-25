@@ -33,7 +33,7 @@ export const CAPTURED_WAVE_1_HUMAN_OPTIONS: [Ability, Ability] = [
     statusEffect: { type: "HASTE", magnitude: 0.25, durationSeconds: 1.5 },
     movementBehavior: "DASH",
     targeting: "DIRECTIONAL",
-    reason: "Your loadout has no way to create distance, so this gives you an escape option.",
+    reason: "Your loadout has no way to create distance, so I'm giving you an escape option.",
     sprite: capturedSprite("MOBILITY"),
   },
   {
@@ -51,7 +51,7 @@ export const CAPTURED_WAVE_1_HUMAN_OPTIONS: [Ability, Ability] = [
     statusEffect: { type: "SLOW", magnitude: 0.4, durationSeconds: 2.5 },
     movementBehavior: null,
     targeting: "AREA_SELF",
-    reason: "Your build has no answer for incoming damage, so this buys you breathing room.",
+    reason: "Your build has no answer for incoming damage, so I'm buying you breathing room.",
     sprite: capturedSprite("DEFENSE"),
   },
 ];

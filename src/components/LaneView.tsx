@@ -54,10 +54,23 @@ export function LaneView({
   isZombieWaveGenerating,
 }: LaneViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [aura, setAura] = useState<Ability["category"] | null>(null);
 
   const [equippedAbilities, setEquippedAbilities] = useState<[Ability, Ability]>(
     initialEquippedAbilities,
   );
+  useEffect(() => {
+    let timeoutId = 0;
+    const onAbilityUsed = (event: Event) => {
+      const detail = (event as CustomEvent<{ laneType: LaneType; category: Ability["category"] }>).detail;
+      if (detail.laneType !== laneType) return;
+      setAura(detail.category);
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => setAura(null), 700);
+    };
+    window.addEventListener("chaos-roll:ability-used", onAbilityUsed);
+    return () => { window.removeEventListener("chaos-roll:ability-used", onAbilityUsed); window.clearTimeout(timeoutId); };
+  }, [laneType]);
   // Mutated synchronously alongside setEquippedAbilities (not via a
   // useEffect mirror) so a generation kicked off immediately after a pick
   // reads the just-picked loadout, never a stale one from before the pick
@@ -222,6 +235,16 @@ export function LaneView({
       <HUD laneState={laneState} />
       <div className="lane__arena">
         <canvas className="lane__canvas" ref={canvasRef} width={480} height={360} />
+        {aura && (
+          <div
+            className={`lane__aura lane__aura--${aura.toLowerCase()}`}
+            aria-hidden="true"
+          >
+            {Array.from({ length: 14 }, (_, index) => (
+              <i key={index} style={{ ["--n" as string]: index }} />
+            ))}
+          </div>
+        )}
         <aside className="lane__mutant-roster" aria-label="Current AI-generated zombie types">
           <span className="lane__mutant-kicker">
             {isZombieWaveGenerating ? "MUTATING LIVE" : "WAVE MUTATIONS"}

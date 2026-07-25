@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { LanePhase, LaneType } from "./types";
 
 export const COMBAT_DURATION_SECONDS = 15;
-export const PICK_DURATION_SECONDS = 5;
+export const PICK_DURATION_SECONDS = 12;
 const TICK_MS = 1000;
 
 export interface MatchClockState {
