@@ -219,8 +219,16 @@ export function LaneView({
     generation.pendingOptions !== null &&
     !generation.hasCommittedPick;
 
+  const healthFraction = maxHealth > 0 ? health / maxHealth : 0;
+  const dangerClass =
+    !isAlive || healthFraction > 0.5
+      ? ""
+      : healthFraction <= 0.25
+        ? "lane--critical"
+        : "lane--wounded";
+
   return (
-    <div className={`lane lane--${laneType}`}>
+    <div className={`lane lane--${laneType} ${dangerClass}`}>
       <HUD laneState={laneState} />
       <div className="lane__arena">
         <canvas className="lane__canvas" ref={canvasRef} width={480} height={360} />
