@@ -78,10 +78,14 @@ export interface Enemy {
   kind: "zombie";
   flashUntil?: number;
   // Set by combat VFX (game/useCombatEffects.ts) when a stun/freeze-flavored
-  // ability hits — advanceEnemies (game/arena.ts) skips movement/attack for
-  // this enemy while performance.now() < stunnedUntil.
+  // ability hits — advanceEnemies (game/useEnemies.ts) skips movement/attack
+  // for this enemy while performance.now() < stunnedUntil.
   stunnedUntil?: number;
+  special?: ZombieSpecial;
+  lastSpecialAt?: number;
 }
+
+export interface ZombieSpecial { name: string; kind: "PULSE" | "SPRINT" | "FRENZY"; cooldownSeconds: number; damage: number; range: number; }
 
 export type ZombieAttackType = "MELEE" | "RANGED" | "AURA";
 

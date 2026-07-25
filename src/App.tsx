@@ -5,5 +5,5 @@ import { StartMenu } from "./components/StartMenu";
 export function App() {
   const [started, setStarted] = useState(false);
 
-  return started ? <LobbyView /> : <StartMenu onStart={() => setStarted(true)} />;
+  return started ? <LobbyView onMenu={() => setStarted(false)} /> : <StartMenu onStart={() => setStarted(true)} />;
 }

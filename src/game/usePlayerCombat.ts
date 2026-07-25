@@ -20,7 +20,6 @@ const BOT_MOVE_SPEED_PX = 80;
 const BOT_RETREAT_DISTANCE_PX = 80;
 const BOT_APPROACH_DISTANCE_PX = 180;
 const BOT_EDGE_BIAS_PX = 40;
-const BOT_REGEN_PER_SECOND = 3;
 const DEMO_MIN_COOLDOWN_SECONDS = 0.6;
 const DEMO_MAX_COOLDOWN_SECONDS = 1.8;
 const JUMP_DURATION_MS = 420;
@@ -185,6 +184,7 @@ export interface UsePlayerCombatResult {
   isAlive: boolean;
   cooldownsRemaining: [number, number];
   enemies: Enemy[];
+  activeSpecial: import("./types").ZombieSpecial | null;
 }
 
 // Owns one lane's player, ability cooldowns, enemy combat, and canvas render
@@ -198,7 +198,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
   }
   const player = playerRef.current;
 
-  const { enemies, enemiesRef, damageEnemies } = useEnemies({
+  const { enemies, enemiesRef, damageEnemies, activeSpecial } = useEnemies({
     laneType,
     phase,
     waveNumber,
@@ -224,7 +224,6 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
 
   const [snapshot, setSnapshot] = useState({ hp: player.hp, isAlive: player.isAlive });
   const lastKnownRef = useRef(snapshot);
-  const lastBotRegenAtRef = useRef(0);
   const { getMovementVector } = usePlayerMovement();
 
   const movementActionRef = useRef<MovementAction | null>(null);
@@ -320,6 +319,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fill();
+        if (enemy.special?.kind === "PULSE" && enemy.flashUntil && enemy.flashUntil > now) { ctx.strokeStyle="#c084fc"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,radius*2.3,0,Math.PI*2); ctx.stroke(); }
 
         ctx.fillStyle = "#18210f";
         ctx.fillRect(x - radius * 0.45, y - radius * 0.25, radius * 0.25, radius * 0.25);
@@ -437,10 +437,6 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
             }
           }
 
-          if (now - lastBotRegenAtRef.current >= 1000) {
-            player.hp = Math.min(player.maxHp, player.hp + BOT_REGEN_PER_SECOND);
-            lastBotRegenAtRef.current = now;
-          }
         }
 
         for (let index = 0; index < cooldownsRef.current.length; index += 1) {
@@ -499,6 +495,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
       if (slot === undefined || cooldownsRef.current[slot] > 0) return;
 
       const ability = equippedRef.current[slot];
+      const now = performance.now();
       const hitIds = damageEnemies(ability, { x: player.x, y: player.y });
       combatEffects.fireEffect(
         ability,
@@ -506,6 +503,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
         enemiesRef.current,
         player.facingDirection,
       );
+      applyMovementBehavior(ability, now);
       cooldownsRef.current[slot] = demoCooldownSeconds(ability.cooldownSeconds);
 
       console.log(
@@ -542,5 +540,6 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
     isAlive: snapshot.isAlive,
     cooldownsRemaining: cooldownsRef.current,
     enemies,
+    activeSpecial,
   };
 }
