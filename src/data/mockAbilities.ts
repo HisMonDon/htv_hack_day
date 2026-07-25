@@ -16,20 +16,20 @@ type MockAbility = Omit<Ability, "sprite" | "reason">;
 // writing one for all ~30 entries above.
 const DEFAULT_REASONS: Record<AbilityCategory, string[]> = {
   OFFENSE: [
-    "Your loadout is light on raw damage, so this hits hard.",
-    "You've been relying on utility — time for something that ends fights.",
+    "Your loadout is light on raw damage, so I'm giving you something that hits hard.",
+    "You've been relying on utility — I'm giving you something that ends fights.",
   ],
   MOBILITY: [
-    "You've got nothing to create distance with, so this gets you out of trouble.",
-    "Your kit is all standing your ground — this adds an escape option.",
+    "You've got nothing to create distance with, so I'm giving you an escape option.",
+    "Your kit is all standing your ground — I'm giving you a way out.",
   ],
   DEFENSE: [
-    "Your build has no way to mitigate incoming damage, so this covers that.",
-    "You're overextended offensively — this buys you breathing room.",
+    "Your build has no way to mitigate incoming damage, so I'm giving you a shield.",
+    "You're overextended offensively — I'm giving you breathing room.",
   ],
   UTILITY: [
-    "Your loadout lacks crowd control, so this creates space against groups.",
-    "Everything you have is single-target — this helps against a swarm.",
+    "Your loadout lacks crowd control, so I'm giving you something that creates space.",
+    "A swarm is coming next round, so I'm giving you something that hits multiple targets.",
   ],
 };
 

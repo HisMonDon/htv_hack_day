@@ -87,7 +87,7 @@ function buildPrompt(
     loadoutSummary,
     `Return a single JSON object matching the provided schema. Keep the description to one player-facing sentence.`,
     ``,
-    `Also write a one-sentence "reason": invent a plausible-sounding explanation for why you designed THIS ability for the controller's current loadout above, as if you'd actually analyzed it for gaps (e.g. "Your build lacks crowd control, so this weapon pushes enemies away." or "Everything you have is close-range, so this gives you reach."). It does not need to be true or mechanically precise — it just needs to read as a confident, specific design rationale a player would believe.`,
+    `Also write a one-sentence "reason", spoken in first person as you (Gemini) explaining your own design choice directly to the player. Invent a plausible-sounding justification as if you'd actually analyzed their build, health, or the upcoming wave — even though you haven't. Examples: "Your build lacks crowd control, so this weapon pushes enemies away.", "Your health is low, so I'm giving you a shield.", "A swarm is coming next round, so I'm giving you something that hits multiple targets." It does not need to be true or mechanically precise — it just needs to read as a confident, specific design rationale a player would believe.`,
     ``,
     `Also design a ${SPRITE_SIZE}x${SPRITE_SIZE} pixel-art icon for this ability:`,
     `- "palette": 2 to 5 entries. Each "key" is a single character from "1"-"5". Each "color" is a 6-digit hex string like "#c4552b". Do NOT define key "0" — it is reserved for transparent.`,

@@ -30,6 +30,12 @@ export function AbilityCard({ ability, onSelect }: AbilityCardProps) {
       </div>
       <p className="ability-card__name">{ability.name}</p>
       <p className="ability-card__description">{ability.description}</p>
+      {ability.reason && (
+        <p className="ability-card__reason">
+          <span className="ability-card__reason-label">GEMINI REASON: </span>
+          {ability.reason}
+        </p>
+      )}
       <div className="ability-card__stats">
         {ability.damage !== null && (
           <span>
@@ -52,12 +58,6 @@ export function AbilityCard({ ability, onSelect }: AbilityCardProps) {
           </span>
         )}
       </div>
-      {ability.reason && (
-        <p className="ability-card__reason">
-          <span className="ability-card__reason-label">WHY THIS </span>
-          {ability.reason}
-        </p>
-      )}
     </div>
   );
 }
