@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { LaneView } from "./LaneView";
 import { MatchResult } from "./MatchResult";
 import { createMockEquippedAbilities } from "../data/mockAbilities";
@@ -6,6 +6,7 @@ import { useMatchClock } from "../game/useMatchClock";
 import { getStatRangesForWave } from "../game/statRanges";
 import { clampAbilityToRange } from "../game/clamp";
 import type { Ability, LaneType } from "../game/types";
+import { CountdownOverlay } from "./CountdownOverlay";
 import "./LobbyView.css";
 
 // Starting loadouts are pre-authored mock content, so they get the same wave-1
@@ -42,6 +43,9 @@ function ActiveMatch({
 }: {
   onResult: (result: { type: "victory" | "defeat"; waveNumber: number } | null) => void;
 }) {
+  const [countdownDone, setCountdownDone] = useState(false);
+  const humanLoadoutRef = useRef(createStartingLoadout("human"));
+  const botLoadoutRef = useRef(createStartingLoadout("bot"));
   const { phase, waveNumber, combatTimeRemaining, pickTimeRemaining, registerLane, notifyGenerationReady } =
     useMatchClock();
   const handleDefeated = useCallback((laneType: "human" | "bot", defeatedAtWave: number) => {
@@ -57,7 +61,7 @@ function ActiveMatch({
       <div className="lobby__lanes">
         <LaneView
           laneType="human"
-          initialEquippedAbilities={createStartingLoadout("human")}
+          initialEquippedAbilities={humanLoadoutRef.current}
           survivalTimeSeconds={0}
           matchPhase={phase}
           matchWaveNumber={waveNumber}
@@ -69,7 +73,7 @@ function ActiveMatch({
         />
         <LaneView
           laneType="bot"
-          initialEquippedAbilities={createStartingLoadout("bot")}
+          initialEquippedAbilities={botLoadoutRef.current}
           survivalTimeSeconds={0}
           matchPhase={phase}
           matchWaveNumber={waveNumber}
@@ -80,6 +84,13 @@ function ActiveMatch({
           onDefeated={handleDefeated}
         />
       </div>
+      {!countdownDone && (
+        <CountdownOverlay
+          humanAbilities={humanLoadoutRef.current}
+          botAbilities={botLoadoutRef.current}
+          onComplete={() => setCountdownDone(true)}
+        />
+      )}
     </div>
   );
 }

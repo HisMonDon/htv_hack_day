@@ -14,6 +14,8 @@ import { createPlayerEntity } from "./playerEntity";
 import { useCombatEffects } from "./useCombatEffects";
 import { useEnemies } from "./useEnemies";
 import { usePlayerMovement } from "./usePlayerMovement";
+import { renderPixelArt } from "./renderPixelArt";
+import { HUMAN_PLAYER_SPRITE, BOT_PLAYER_SPRITE } from "../data/playerSprites";
 
 const ABILITY_KEYS: Record<string, 0 | 1> = { j: 0, k: 1 };
 const BOT_MOVE_SPEED_PX = 80;
@@ -102,11 +104,9 @@ function drawArenaFloor(ctx: CanvasRenderingContext2D, width: number, height: nu
   ctx.stroke();
 }
 
-// Forward-leaning wedge with swept-back flanks and a notched tail — reads as
-// a direction and an aggressive silhouette at 24px without needing sprite
-// data (renderPixelArt is still an unimplemented stub). Value contrast comes
-// from the void-colored outline, not glow, so the actor stays separated from
-// the floor grid regardless of accent brightness.
+// Pixel-art character sprite with a subtle ground shadow and a bone-colored
+// core dot.  Replaces the earlier procedural wedge now that renderPixelArt
+// and player sprites are available.
 function drawActor(
   ctx: CanvasRenderingContext2D,
   px: number,
@@ -115,24 +115,23 @@ function drawActor(
   dirX: number,
   dirY: number,
   accent: string,
+  isHuman: boolean,
 ): void {
-  const nx = -dirY;
-  const ny = dirX;
-
+  // Subtle ground shadow for depth.
+  ctx.save();
+  ctx.globalAlpha = 0.4;
+  ctx.fillStyle = COLOR_VOID;
   ctx.beginPath();
-  ctx.moveTo(px + dirX * radius * 1.9, py + dirY * radius * 1.9);
-  ctx.lineTo(px - dirX * radius * 0.9 + nx * radius * 1.15, py - dirY * radius * 0.9 + ny * radius * 1.15);
-  ctx.lineTo(px - dirX * radius * 0.35, py - dirY * radius * 0.35);
-  ctx.lineTo(px - dirX * radius * 0.9 - nx * radius * 1.15, py - dirY * radius * 0.9 - ny * radius * 1.15);
-  ctx.closePath();
-
-  ctx.fillStyle = accent;
+  ctx.ellipse(px, py + 6, 10, 5, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = COLOR_VOID;
-  ctx.stroke();
+  ctx.restore();
 
-  // Brightest pixels reserved for the core, per the sprite direction.
+  // Draw the 16×16 sprite at 1.5× scale (24×24 rendered), centered on (px, py).
+  ctx.save();
+  renderPixelArt(ctx, isHuman ? HUMAN_PLAYER_SPRITE : BOT_PLAYER_SPRITE, 1.5, px - 12, py - 12);
+  ctx.restore();
+
+  // Brightest pixels reserved for the core dot.
   ctx.fillStyle = COLOR_BONE;
   ctx.fillRect(Math.round(px) - 1, Math.round(py) - 1, 3, 3);
 }
@@ -360,6 +359,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
         player.facingDirection.x,
         player.facingDirection.y,
         laneType === "human" ? COLOR_HUMAN : COLOR_BOT,
+        laneType === "human",
       );
       combatEffects.drawEffects(ctx, now);
       ctx.restore();
