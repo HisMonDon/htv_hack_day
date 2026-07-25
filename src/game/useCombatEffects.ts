@@ -970,8 +970,8 @@ export function useCombatEffects(equippedAbilities: [Ability, Ability]): UseComb
             ? { x: target.x - effect.source.x, y: target.y - effect.source.y }
             : null;
 
-        if (hasValidSpriteData(effect.ability.spriteData)) {
-          drawSprite(ctx, effect.ability.spriteData, centerPx, BASE_SPRITE_PIXEL_SCALE * aoe, alpha);
+        if (hasValidSpriteData(effect.ability.sprite)) {
+          drawSprite(ctx, effect.ability.sprite, centerPx, BASE_SPRITE_PIXEL_SCALE * aoe, alpha);
         } else {
           drawFlavorShape(ctx, effect.ability.category, effect.flavor, centerPx, direction, aoe, t, alpha);
         }

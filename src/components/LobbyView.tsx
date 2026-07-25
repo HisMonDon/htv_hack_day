@@ -1,7 +1,21 @@
+import { useCallback, useState } from "react";
 import { LaneView } from "./LaneView";
+import { MatchResult } from "./MatchResult";
 import { createMockEquippedAbilities } from "../data/mockAbilities";
 import { useMatchClock } from "../game/useMatchClock";
+import { getStatRangesForWave } from "../game/statRanges";
+import { clampAbilityToRange } from "../game/clamp";
+import type { Ability, LaneType } from "../game/types";
 import "./LobbyView.css";
+
+// Starting loadouts are pre-authored mock content, so they get the same wave-1
+// clamp every generated ability gets. Without this the match opens with
+// whatever raw numbers the mock table happens to carry.
+function createStartingLoadout(laneType: LaneType): [Ability, Ability] {
+  const ranges = getStatRangesForWave(1, laneType);
+  const [first, second] = createMockEquippedAbilities();
+  return [clampAbilityToRange(first, ranges), clampAbilityToRange(second, ranges)];
+}
 
 // Top-level split-screen view: human lane on the left, bot lane on the
 // right. LobbyView owns the single shared match clock (Task 5) so both
@@ -12,8 +26,27 @@ import "./LobbyView.css";
 // health/maxHealth/isAlive are driven internally by LaneView's player
 // entity/combat system (Task 4) — no longer passed in as static placeholders.
 export function LobbyView() {
+  const [result, setResult] = useState<{ type: "victory" | "defeat"; waveNumber: number } | null>(null);
+  const [matchId, setMatchId] = useState(0);
+
+  return (
+    <>
+      <ActiveMatch key={matchId} onResult={setResult} />
+      {result && <MatchResult result={result.type} waveNumber={result.waveNumber} onPlayAgain={() => { setResult(null); setMatchId((id) => id + 1); }} />}
+    </>
+  );
+}
+
+function ActiveMatch({
+  onResult,
+}: {
+  onResult: (result: { type: "victory" | "defeat"; waveNumber: number } | null) => void;
+}) {
   const { phase, waveNumber, combatTimeRemaining, pickTimeRemaining, registerLane, notifyGenerationReady } =
     useMatchClock();
+  const handleDefeated = useCallback((laneType: "human" | "bot", defeatedAtWave: number) => {
+    onResult({ type: laneType === "human" ? "defeat" : "victory", waveNumber: defeatedAtWave });
+  }, [onResult]);
 
   return (
     <div className="lobby">
@@ -24,7 +57,7 @@ export function LobbyView() {
       <div className="lobby__lanes">
         <LaneView
           laneType="human"
-          initialEquippedAbilities={createMockEquippedAbilities()}
+          initialEquippedAbilities={createStartingLoadout("human")}
           survivalTimeSeconds={0}
           matchPhase={phase}
           matchWaveNumber={waveNumber}
@@ -32,10 +65,11 @@ export function LobbyView() {
           pickTimeRemaining={pickTimeRemaining}
           registerLane={registerLane}
           notifyGenerationReady={notifyGenerationReady}
+          onDefeated={handleDefeated}
         />
         <LaneView
           laneType="bot"
-          initialEquippedAbilities={createMockEquippedAbilities()}
+          initialEquippedAbilities={createStartingLoadout("bot")}
           survivalTimeSeconds={0}
           matchPhase={phase}
           matchWaveNumber={waveNumber}
@@ -43,6 +77,7 @@ export function LobbyView() {
           pickTimeRemaining={pickTimeRemaining}
           registerLane={registerLane}
           notifyGenerationReady={notifyGenerationReady}
+          onDefeated={handleDefeated}
         />
       </div>
     </div>

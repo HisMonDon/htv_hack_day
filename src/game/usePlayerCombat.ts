@@ -28,6 +28,105 @@ function demoCooldownSeconds(value: number): number {
   return Math.max(DEMO_MIN_COOLDOWN_SECONDS, Math.min(DEMO_MAX_COOLDOWN_SECONDS, value));
 }
 
+// Arena palette — deliberately duplicated from styles/theme.css rather than
+// read via getComputedStyle, which would be a layout read inside the frame
+// loop. Keep these in sync with the tokens by hand; they are the only place
+// canvas drawing is allowed to name a color.
+const COLOR_VOID = "#0b0b0e";
+const COLOR_BONE = "#ede6d6";
+const COLOR_DANGER = "#ff2e2e";
+const COLOR_HUMAN = "#35e0c8";
+const COLOR_BOT = "#ff3d7f";
+const COLOR_GRID = "rgba(237, 230, 214, 0.05)";
+const COLOR_TARGET = "#5a5d66";
+
+const GRID_SPACING_PX = CANVAS_SCALE * 2;
+
+// Sparse floor grid — damaged-cabinet substrate, drawn under everything.
+// Cheap enough (a few dozen strokes) that caching it to an offscreen canvas
+// would add complexity without measurable gain at 480x360.
+function drawArenaFloor(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+  ctx.strokeStyle = COLOR_GRID;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = GRID_SPACING_PX; x < width; x += GRID_SPACING_PX) {
+    ctx.moveTo(x + 0.5, 0);
+    ctx.lineTo(x + 0.5, height);
+  }
+  for (let y = GRID_SPACING_PX; y < height; y += GRID_SPACING_PX) {
+    ctx.moveTo(0, y + 0.5);
+    ctx.lineTo(width, y + 0.5);
+  }
+  ctx.stroke();
+}
+
+// Forward-leaning wedge with swept-back flanks and a notched tail — reads as
+// a direction and an aggressive silhouette at 24px without needing sprite
+// data (renderPixelArt is still an unimplemented stub). Value contrast comes
+// from the void-colored outline, not glow, so the actor stays separated from
+// the floor grid regardless of accent brightness.
+function drawActor(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+  radius: number,
+  dirX: number,
+  dirY: number,
+  accent: string,
+): void {
+  const nx = -dirY;
+  const ny = dirX;
+
+  ctx.beginPath();
+  ctx.moveTo(px + dirX * radius * 1.9, py + dirY * radius * 1.9);
+  ctx.lineTo(px - dirX * radius * 0.9 + nx * radius * 1.15, py - dirY * radius * 0.9 + ny * radius * 1.15);
+  ctx.lineTo(px - dirX * radius * 0.35, py - dirY * radius * 0.35);
+  ctx.lineTo(px - dirX * radius * 0.9 - nx * radius * 1.15, py - dirY * radius * 0.9 - ny * radius * 1.15);
+  ctx.closePath();
+
+  ctx.fillStyle = accent;
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = COLOR_VOID;
+  ctx.stroke();
+
+  // Brightest pixels reserved for the core, per the sprite direction.
+  ctx.fillStyle = COLOR_BONE;
+  ctx.fillRect(Math.round(px) - 1, Math.round(py) - 1, 3, 3);
+}
+
+// Hazard-marked target block with clipped corners — industrial, not a
+// rounded card. Temporary scaffolding alongside dummyTarget.ts.
+function drawTarget(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  hpFraction: number,
+): void {
+  const left = Math.round(cx) - 10;
+  const top = Math.round(cy) - 10;
+  const notch = 4;
+
+  ctx.beginPath();
+  ctx.moveTo(left + notch, top);
+  ctx.lineTo(left + 20, top);
+  ctx.lineTo(left + 20, top + 20 - notch);
+  ctx.lineTo(left + 20 - notch, top + 20);
+  ctx.lineTo(left, top + 20);
+  ctx.lineTo(left, top + notch);
+  ctx.closePath();
+  ctx.fillStyle = COLOR_TARGET;
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = COLOR_VOID;
+  ctx.stroke();
+
+  ctx.fillStyle = COLOR_VOID;
+  ctx.fillRect(left, top - 6, 20, 4);
+  ctx.fillStyle = COLOR_DANGER;
+  ctx.fillRect(left, top - 6, Math.round(20 * hpFraction), 4);
+}
+
 export interface UsePlayerCombatOptions {
   laneType: LaneType;
   phase: LanePhase;
@@ -89,11 +188,18 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
     let rafId = 0;
     let lastTime = performance.now();
 
+    // Cooldown readout and the defeated state are owned by the HUD and
+    // LaneView's status overlay respectively — the canvas deliberately draws
+    // neither, so combat information lives in exactly one place.
     function render() {
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext("2d");
       if (!canvas || !ctx) return;
+
+      // Pixel-art hygiene: no interpolation when sprites eventually land here.
+      ctx.imageSmoothingEnabled = false;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawArenaFloor(ctx, canvas.width, canvas.height);
 
       const now = performance.now();
       const shake = combatEffects.getShakeOffset(now);
@@ -131,38 +237,16 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
         ctx.fillRect(x - barWidth / 2, y - radius - 8, barWidth * hpFraction, 4);
       }
 
-      const px = player.x * CANVAS_SCALE;
-      const py = player.y * CANVAS_SCALE;
-      ctx.fillStyle = laneType === "human" ? "#3b82f6" : "#ef4444";
-      ctx.beginPath();
-      ctx.arc(px, py, PLAYER_RADIUS * CANVAS_SCALE, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.moveTo(px, py);
-      ctx.lineTo(
-        px + player.facingDirection.x * PLAYER_RADIUS * CANVAS_SCALE * 1.6,
-        py + player.facingDirection.y * PLAYER_RADIUS * CANVAS_SCALE * 1.6,
+      drawActor(
+        ctx,
+        player.x * CANVAS_SCALE,
+        player.y * CANVAS_SCALE,
+        PLAYER_RADIUS * CANVAS_SCALE,
+        player.facingDirection.x,
+        player.facingDirection.y,
+        laneType === "human" ? COLOR_HUMAN : COLOR_BOT,
       );
-      ctx.stroke();
-
       combatEffects.drawEffects(ctx, now);
-
-      if (laneType === "human") {
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "12px monospace";
-        const [cdJ, cdK] = cooldownsRef.current;
-        ctx.fillText(`J: ${cdJ > 0 ? cdJ.toFixed(1) + "s" : "ready"}`, 8, canvas.height - 20);
-        ctx.fillText(`K: ${cdK > 0 ? cdK.toFixed(1) + "s" : "ready"}`, 8, canvas.height - 6);
-      }
-
-      if (!player.isAlive) {
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "16px monospace";
-        ctx.fillText("DEFEATED", canvas.width / 2 - 40, canvas.height / 2);
-      }
-
       ctx.restore();
     }
 

@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { Ability, LaneType } from "./types";
 import { getStatRangesForWave } from "./statRanges";
+import { clampAbilityToRange } from "./clamp";
 import { generateTwoAbilityOptions } from "../ai/generateTwoAbilityOptions";
 import { createMockAbilityPair } from "../data/mockAbilities";
 import type { LaneAdapter } from "./useMatchClock";
@@ -91,7 +92,17 @@ export function useLaneGeneration(opts: UseLaneGenerationOptions): UseLaneGenera
             `[useLaneGeneration] generateTwoAbilityOptions failed for ${laneType} wave ${forWaveNumber}, falling back to mock options:`,
             err,
           );
-          applyGeneratedOptions(token, createMockAbilityPair());
+          // Fallback content goes through the exact same wave clamp as live
+          // output. The pre-authored mock stats are balanced for nothing in
+          // particular (Meteor Shower ships at 70 damage), so serving them
+          // raw would hand out 3-4x the wave ceiling precisely when the API
+          // is down — the one path nobody watches during a demo.
+          const ranges = getStatRangesForWave(forWaveNumber, laneType);
+          const [fallbackA, fallbackB] = createMockAbilityPair(forWaveNumber);
+          applyGeneratedOptions(token, [
+            clampAbilityToRange(fallbackA, ranges),
+            clampAbilityToRange(fallbackB, ranges),
+          ]);
         });
     },
     [laneType, getCurrentLoadout, applyGeneratedOptions, isAlive],

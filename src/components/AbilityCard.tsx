@@ -1,5 +1,6 @@
 import type { Ability } from "../game/types";
 import { categoryColorVar } from "./categoryColor";
+import { SpriteCanvas } from "./SpriteCanvas";
 import "./AbilityCard.css";
 
 export interface AbilityCardProps {
@@ -7,8 +8,6 @@ export interface AbilityCardProps {
   onSelect?: () => void;
 }
 
-// TODO: render ability sprite via renderPixelArt once that's wired up
-// (Task 4/5 scope, not this styling pass).
 export function AbilityCard({ ability, onSelect }: AbilityCardProps) {
   return (
     <div
@@ -25,7 +24,10 @@ export function AbilityCard({ ability, onSelect }: AbilityCardProps) {
       tabIndex={0}
       aria-label={`${ability.name}, ${ability.category}`}
     >
-      <span className="ability-card__tag">{ability.category}</span>
+      <div className="ability-card__header">
+        <SpriteCanvas sprite={ability.sprite} scale={3} className="ability-card__sprite" />
+        <span className="ability-card__tag">{ability.category}</span>
+      </div>
       <p className="ability-card__name">{ability.name}</p>
       <p className="ability-card__description">{ability.description}</p>
       <div className="ability-card__stats">

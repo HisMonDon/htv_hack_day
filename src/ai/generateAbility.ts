@@ -1,6 +1,8 @@
 import { Type, type Schema } from "@google/genai";
 import type { Ability, AbilityCategory, LaneType } from "../game/types";
 import { generateStructuredJSON } from "./geminiClient";
+import { SPRITE_SIZE, validateSprite, type RawSpriteResponse } from "../game/spriteValidation";
+import { getFallbackSprite, tierForWave } from "../data/spriteLibrary";
 
 function buildAbilitySchema(category: AbilityCategory): Schema {
   return {
@@ -28,6 +30,30 @@ function buildAbilitySchema(category: AbilityCategory): Schema {
       },
       movementBehavior: { type: Type.STRING, nullable: true },
       targeting: { type: Type.STRING },
+      sprite: {
+        type: Type.OBJECT,
+        properties: {
+          // Palette as an array of key/color pairs rather than a keyed object:
+          // Gemini's structured output has no way to express arbitrary object
+          // keys, so an object palette comes back inconsistently shaped.
+          palette: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                key: { type: Type.STRING },
+                color: { type: Type.STRING },
+              },
+              required: ["key", "color"],
+            },
+          },
+          // One string per row, one character per pixel. Far more reliable to
+          // get back well-formed than a nested string[][], and small enough to
+          // regenerate every 15 seconds.
+          rows: { type: Type.ARRAY, items: { type: Type.STRING } },
+        },
+        required: ["palette", "rows"],
+      },
     },
     required: [
       "name",
@@ -37,6 +63,7 @@ function buildAbilitySchema(category: AbilityCategory): Schema {
       "range",
       "statusEffect",
       "targeting",
+      "sprite",
     ],
   };
 }
@@ -57,6 +84,13 @@ function buildPrompt(
     `The controller currently has these abilities equipped — do not generate a near-duplicate of any of them:`,
     loadoutSummary,
     `Return a single JSON object matching the provided schema. Keep the description to one player-facing sentence.`,
+    ``,
+    `Also design a ${SPRITE_SIZE}x${SPRITE_SIZE} pixel-art icon for this ability:`,
+    `- "palette": 2 to 5 entries. Each "key" is a single character from "1"-"5". Each "color" is a 6-digit hex string like "#c4552b". Do NOT define key "0" — it is reserved for transparent.`,
+    `- "rows": exactly ${SPRITE_SIZE} strings, each exactly ${SPRITE_SIZE} characters long, every character either "0" (transparent) or one of your palette keys.`,
+    `Art direction: harsh, aggressive, industrial arcade iconography — blades, thorns, teeth, chains, sparks, damaged metal, broken rings.`,
+    `Read as a bold silhouette at small size: strong asymmetry, no fine one-pixel detail, and leave the outer border mostly transparent.`,
+    `Reserve your brightest color for edges, cores, or the business end of the weapon.`,
   ].join("\n");
 }
 
@@ -74,12 +108,29 @@ export async function generateAbility(
   const schema = buildAbilitySchema(category);
   const prompt = buildPrompt(waveNumber, laneType, category, currentLoadout);
 
-  const ability = await generateStructuredJSON<Ability>(prompt, schema);
+  const raw = await generateStructuredJSON<Ability & { sprite: RawSpriteResponse }>(prompt, schema);
 
-  if (ability.category !== category) {
+  if (raw.category !== category) {
     // Schema constrains this to a single enum value, but don't trust it blindly.
-    ability.category = category;
+    raw.category = category;
   }
 
-  return ability;
+  // Sprite validation failing must not fail the whole ability — the mechanics
+  // are the load-bearing part, and a library silhouette of the right category
+  // is a better outcome than dropping a generated ability entirely.
+  let sprite;
+  try {
+    sprite = validateSprite(raw.sprite);
+  } catch (err) {
+    console.warn(
+      `[generateAbility] sprite validation failed for "${raw.name}" (${category}) — substituting library sprite:`,
+      err instanceof Error ? err.message : err,
+    );
+    sprite = getFallbackSprite(category, tierForWave(waveNumber));
+    if (!sprite) {
+      throw new Error(`no fallback sprite available for category ${category}`);
+    }
+  }
+
+  return { ...raw, sprite };
 }

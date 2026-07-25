@@ -23,6 +23,7 @@ export interface LaneViewProps {
   pickTimeRemaining: number;
   registerLane: (laneType: LaneType, adapter: LaneAdapter) => void;
   notifyGenerationReady: () => void;
+  onDefeated: (laneType: LaneType, waveNumber: number) => void;
 }
 
 // Renders and drives one lane (human or bot). Reads the shared match clock
@@ -39,6 +40,7 @@ export function LaneView({
   pickTimeRemaining,
   registerLane,
   notifyGenerationReady,
+  onDefeated,
 }: LaneViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -106,6 +108,17 @@ export function LaneView({
   });
   isAliveRef.current = isAlive;
 
+  // This belongs to the lane rather than LobbyView: a defeated lane freezes
+  // while the surviving lane may continue playing.
+  const [liveSurvivalSeconds, setLiveSurvivalSeconds] = useState(survivalTimeSeconds);
+  useEffect(() => {
+    if (!isAlive) return;
+    const intervalId = window.setInterval(() => {
+      setLiveSurvivalSeconds((seconds) => seconds + 1);
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [isAlive]);
+
   // Section 4 — once this lane's player dies it freezes permanently: capture
   // the shared clock's values at the instant of death and keep showing those
   // rather than the still-advancing shared clock (which keeps moving for the
@@ -123,9 +136,19 @@ export function LaneView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAlive]);
 
-  const display = isAlive
-    ? { phase: matchPhase, waveNumber: matchWaveNumber, combatTimeRemaining, pickTimeRemaining }
-    : frozenAtDeathRef.current!;
+  // On the first render after death, the effect above has not populated the
+  // ref yet. Use the current clock as a one-render fallback so the defeat
+  // callback and match-result overlay can mount instead of dereferencing
+  // null during that transition.
+  const currentClock = { phase: matchPhase, waveNumber: matchWaveNumber, combatTimeRemaining, pickTimeRemaining };
+  const display = isAlive ? currentClock : (frozenAtDeathRef.current ?? currentClock);
+
+  const reportedDefeatRef = useRef(false);
+  useEffect(() => {
+    if (isAlive || reportedDefeatRef.current) return;
+    reportedDefeatRef.current = true;
+    onDefeated(laneType, display.waveNumber);
+  }, [isAlive, laneType, display.waveNumber, onDefeated]);
 
   const laneState: LaneState = {
     laneType,
@@ -140,7 +163,7 @@ export function LaneView({
     equippedAbilities,
     currentZombieStats: null, // MVP enemies use deterministic per-wave stats.
     isAlive,
-    survivalTimeSeconds,
+    survivalTimeSeconds: liveSurvivalSeconds,
     // botController.ts (Darshan's, not mine to touch) assumes canvas pixel
     // space (BOT_MOVE_SPEED=90, clampPosition to 480x360) — CANVAS_SCALE
     // converts player.x/y (world units, see game/arena.ts) into that space

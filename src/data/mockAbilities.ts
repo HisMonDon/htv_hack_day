@@ -1,9 +1,15 @@
 import type { Ability, AbilityCategory } from "../game/types";
+import { getFallbackSprite, tierForWave } from "./spriteLibrary";
 
 // Schema-valid mock abilities so UI components can be built/tested before
 // real Gemini calls are wired in.
+//
+// Sprites are attached at construction from the fallback library rather than
+// written into each entry — 30 hand-authored 16x16 grids would be unmaintainable
+// and the library already has one silhouette per category.
+type MockAbility = Omit<Ability, "sprite">;
 
-const MOCK_ABILITIES_BY_CATEGORY: Record<AbilityCategory, Ability[]> = {
+const MOCK_ABILITIES_BY_CATEGORY: Record<AbilityCategory, MockAbility[]> = {
   OFFENSE: [
     {
       name: "Rusty Cleaver Toss",
@@ -537,7 +543,8 @@ const MOCK_ABILITIES_BY_CATEGORY: Record<AbilityCategory, Ability[]> = {
 
 
 export function createMockAbility(
-  overrides: Partial<Ability> = {}
+  overrides: Partial<Ability> = {},
+  waveNumber = 1,
 ): Ability {
   const category = overrides.category ?? "OFFENSE";
 
@@ -546,25 +553,33 @@ export function createMockAbility(
   const base =
     abilities[Math.floor(Math.random() * abilities.length)];
 
+  // getFallbackSprite only returns null for a tag with no library entries;
+  // every AbilityCategory has three, so this is defensive rather than expected.
+  const sprite = getFallbackSprite(category, tierForWave(waveNumber));
+  if (!sprite) {
+    throw new Error(`no fallback sprite available for category ${category}`);
+  }
+
   return {
     ...base,
+    sprite,
     ...overrides,
   };
 }
 
 
 // Two abilities from different categories, matching the pick-phase contract
-export function createMockAbilityPair(): [Ability, Ability] {
+export function createMockAbilityPair(waveNumber = 1): [Ability, Ability] {
   return [
-    createMockAbility({ category: "OFFENSE" }),
-    createMockAbility({ category: "DEFENSE" }),
+    createMockAbility({ category: "OFFENSE" }, waveNumber),
+    createMockAbility({ category: "DEFENSE" }, waveNumber),
   ];
 }
 
 
-export function createMockEquippedAbilities(): [Ability, Ability] {
+export function createMockEquippedAbilities(waveNumber = 1): [Ability, Ability] {
   return [
-    createMockAbility({ category: "MOBILITY" }),
-    createMockAbility({ category: "UTILITY" }),
+    createMockAbility({ category: "MOBILITY" }, waveNumber),
+    createMockAbility({ category: "UTILITY" }, waveNumber),
   ];
 }
