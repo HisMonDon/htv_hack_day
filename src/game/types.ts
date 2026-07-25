@@ -29,6 +29,30 @@ export interface Ability {
   targeting: string;
 }
 
+// Task 4 — minimal shared interface for anything that can take damage from
+// an ability hit (resolveAbilityHit in game/combat.ts). Zombie entities
+// (Sulaiman's system, not built yet) should implement this directly so they
+// can be dropped into resolveAbilityHit's targets list with no changes to
+// combat.ts.
+export interface Damageable {
+  id: string;
+  x: number;
+  y: number;
+  hp: number;
+  takeDamage(amount: number): void;
+}
+
+// Task 4 — a single lane's controllable entity (human player or bot).
+// Position is free 2D movement within the arena bounds (game/arena.ts), not
+// grid-locked. Implements Damageable so damage-dealing logic is symmetric —
+// once zombies exist, their attacks call player.takeDamage the same way
+// resolveAbilityHit calls it on a zombie.
+export interface PlayerEntity extends Damageable {
+  maxHp: number;
+  isAlive: boolean;
+  facingDirection: { x: number; y: number }; // normalized
+}
+
 export type ZombieAttackType = "MELEE" | "RANGED" | "AURA";
 
 // Spec 4.1 — zombie stat schema, generated once per wave per lane.
@@ -113,6 +137,12 @@ export interface LaneState extends LaneTimerState {
   activeZombies: ActiveZombie[];
   // Kept in the same order as equippedAbilities. A value of zero means ready.
   abilityCooldownRemainingSeconds: [number, number];
+  // Task 4 — the lane's controllable entity (position, hp, facing). Added
+  // as a field on LaneState (rather than a separate type/prop) specifically
+  // so botController.ts's LaneState-based functions (decideBotMovement,
+  // decideBotAbilityUse) can read player position/hp once implemented,
+  // without needing any signature change to that file.
+  player: PlayerEntity;
 }
 
 // Config for a single wave of zombies, independent per lane.
