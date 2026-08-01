@@ -53,6 +53,9 @@ interface MovementAction {
   targetY: number;
   startedAt: number;
   durationMs: number;
+  // Looked up once via combatEffects.trailColorFor() when the movement
+  // starts, then reused for every trail sample dropped along its path.
+  trailColor: string;
 }
 
 // Ability.movementBehavior/name/description say things like "dash", "blink",
@@ -347,6 +350,8 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
         player.y + facing.y * travelDistance,
       );
 
+      const trailColor = combatEffects.trailColorFor(ability);
+
       if (kind === "teleport") {
         player.x = dest.x;
         player.y = dest.y;
@@ -360,6 +365,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
           targetY: dest.y,
           startedAt: now,
           durationMs: JUMP_DURATION_MS,
+          trailColor,
         };
         player.invulnerableUntil = now + JUMP_DURATION_MS;
       } else {
@@ -371,6 +377,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
           targetY: dest.y,
           startedAt: now,
           durationMs: DASH_DURATION_MS,
+          trailColor,
         };
       }
     }
@@ -496,6 +503,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
           );
           player.x = next.x;
           player.y = next.y;
+          combatEffects.spawnTrailPoint({ x: player.x, y: player.y }, activeMovement.trailColor, now);
           if (t >= 1) movementActionRef.current = null;
         } else if (laneType === "human") {
           const move = getMovementVector();
