@@ -1,4 +1,4 @@
-import type { Ability, LaneState, Position } from "./types";
+import type { Ability, ActiveZombie, Position } from "./types";
 
 // Spec section 5 — scripted (not real AI) bot lane behavior. Kept as one
 // small, isolated module so it's easy to tune or replace independently of
@@ -13,6 +13,20 @@ export const BOT_LOW_HEALTH_RATIO = 0.3;
 export const BOT_MOVE_SPEED = 90;
 export const BOT_PICK_DELAY_SECONDS = 1;
 
+// The slice of live lane state decideBotMovement/decideBotAbilityUse
+// actually need — narrower than the full LaneState (which also carries
+// unrelated timer/UI fields) so usePlayerCombat.ts's per-frame tick loop can
+// build one of these straight from its own refs without assembling a whole
+// LaneState snapshot every frame.
+export interface BotDecisionState {
+  activeZombies: ActiveZombie[];
+  actorPosition: Position;
+  health: number;
+  maxHealth: number;
+  equippedAbilities: [Ability, Ability];
+  abilityCooldownRemainingSeconds: [number, number];
+}
+
 function distanceBetween(a: Position, b: Position): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
@@ -25,8 +39,8 @@ function directionFromTo(from: Position, to: Position): BotMoveIntent {
 
 // Simple heuristic: move toward the nearest cluster of zombie threats when
 // healthy, retreat when low on health. No pathfinding, no group coordination.
-export function decideBotMovement(laneState: LaneState): BotMoveIntent {
-  const { activeZombies, actorPosition } = laneState;
+export function decideBotMovement(state: BotDecisionState): BotMoveIntent {
+  const { activeZombies, actorPosition } = state;
   if (activeZombies.length === 0) return { dx: 0, dy: 0 };
 
   // Treat zombies near the closest one as a threat cluster. This is deliberately
@@ -48,7 +62,7 @@ export function decideBotMovement(laneState: LaneState): BotMoveIntent {
   target.y /= cluster.length;
 
   const towardThreat = directionFromTo(actorPosition, target);
-  const isLowHealth = laneState.health / laneState.maxHealth <= BOT_LOW_HEALTH_RATIO;
+  const isLowHealth = state.health / state.maxHealth <= BOT_LOW_HEALTH_RATIO;
   return isLowHealth
     ? { dx: -towardThreat.dx, dy: -towardThreat.dy }
     : towardThreat;
@@ -56,12 +70,12 @@ export function decideBotMovement(laneState: LaneState): BotMoveIntent {
 
 // Fires whichever equipped ability is off cooldown when a zombie is in
 // range. No complex targeting — first eligible ability wins.
-export function decideBotAbilityUse(laneState: LaneState): Ability | null {
-  for (const [index, ability] of laneState.equippedAbilities.entries()) {
-    if (laneState.abilityCooldownRemainingSeconds[index] > 0) continue;
+export function decideBotAbilityUse(state: BotDecisionState): Ability | null {
+  for (const [index, ability] of state.equippedAbilities.entries()) {
+    if (state.abilityCooldownRemainingSeconds[index] > 0) continue;
 
-    const hasTargetInRange = laneState.activeZombies.some(
-      (zombie) => distanceBetween(laneState.actorPosition, zombie.position) <= ability.range,
+    const hasTargetInRange = state.activeZombies.some(
+      (zombie) => distanceBetween(state.actorPosition, zombie.position) <= ability.range,
     );
     if (hasTargetInRange) return ability;
   }
@@ -81,53 +95,4 @@ export function decideBotAbilityPick(
   // Prefer diversifying the two-slot loadout. Equal counts intentionally fall
   // back to option 0, which mirrors the human timeout rule.
   return categoryCount(options[1].category) < categoryCount(options[0].category) ? 1 : 0;
-}
-
-function clampPosition(position: Position): Position {
-  return { x: Math.max(0, Math.min(480, position.x)), y: Math.max(0, Math.min(360, position.y)) };
-}
-
-// Applies only the simple bot decisions. Combat effects beyond direct ability
-// damage (projectiles, barriers, statuses) remain the responsibility of the
-// shared combat engine when it is added.
-export function advanceBotLane(
-  laneState: LaneState,
-  deltaSeconds: number,
-  nextAbilityOptions: [Ability, Ability],
-): LaneState {
-  if (!laneState.isAlive || deltaSeconds <= 0) return laneState;
-
-  // useMatchClock + useLaneGeneration own the COMBAT/PICKING transitions and
-  // ability choices in the current main-branch architecture. This function
-  // therefore handles only the bot's movement, cooldowns, and direct combat
-  // effects.
-  void nextAbilityOptions;
-
-  const cooldowns = laneState.abilityCooldownRemainingSeconds.map((value) =>
-    Math.max(0, value - deltaSeconds),
-  ) as [number, number];
-
-  const movement = decideBotMovement({ ...laneState, abilityCooldownRemainingSeconds: cooldowns });
-  const actorPosition = clampPosition({
-    x: laneState.actorPosition.x + movement.dx * BOT_MOVE_SPEED * deltaSeconds,
-    y: laneState.actorPosition.y + movement.dy * BOT_MOVE_SPEED * deltaSeconds,
-  });
-  const stateAtNewPosition = { ...laneState, actorPosition, abilityCooldownRemainingSeconds: cooldowns };
-  const ability = decideBotAbilityUse(stateAtNewPosition);
-  const abilityIndex = ability ? stateAtNewPosition.equippedAbilities.indexOf(ability) : -1;
-  const activeZombies = ability && ability.damage !== null
-    ? stateAtNewPosition.activeZombies
-        .map((zombie) => distanceBetween(actorPosition, zombie.position) <= ability.range
-          ? { ...zombie, health: zombie.health - ability.damage! }
-          : zombie)
-        .filter((zombie) => zombie.health > 0)
-    : stateAtNewPosition.activeZombies;
-
-  if (abilityIndex >= 0) cooldowns[abilityIndex] = ability!.cooldownSeconds;
-  return {
-    ...stateAtNewPosition,
-    activeZombies,
-    abilityCooldownRemainingSeconds: cooldowns,
-    survivalTimeSeconds: laneState.survivalTimeSeconds + deltaSeconds,
-  };
 }
