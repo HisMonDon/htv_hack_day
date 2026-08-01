@@ -526,7 +526,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
             );
             player.x = next.x;
             player.y = next.y;
-            player.facingDirection = movement;
+            player.facingDirection = { x: movement.dx, y: movement.dy };
           }
         }
 
