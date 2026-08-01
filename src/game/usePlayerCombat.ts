@@ -627,7 +627,7 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
 
       const ability = equippedRef.current[slot];
       const now = performance.now();
-      const hitIds = damageEnemies(ability, { x: player.x, y: player.y });
+      damageEnemies(ability, { x: player.x, y: player.y });
       combatEffects.fireEffect(
         ability,
         { x: player.x, y: player.y },
@@ -640,7 +640,6 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
 
       console.log(
         `[usePlayerCombat] ${laneType} activated "${ability.name}" (slot ${slot}) — hit:`,
-        hitIds,
       );
     }
 

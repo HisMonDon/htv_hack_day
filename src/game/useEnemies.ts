@@ -247,8 +247,8 @@ export function applyAbilityDamage(
     targets =
       radius > 0
         ? living.filter(
-            (enemy) => Math.hypot(enemy.x - nearest.x, enemy.y - nearest.y) <= radius,
-          )
+          (enemy) => Math.hypot(enemy.x - nearest.x, enemy.y - nearest.y) <= radius,
+        )
         : [nearest];
   }
 
@@ -306,8 +306,9 @@ export function useEnemies({
     enemiesRef.current = nextEnemies;
     setEnemies(nextEnemies);
     spawnedPlanRef.current = { waveNumber: wavePlan.waveNumber, source: wavePlan.source };
+    const rosterKind = wavePlan.source === "fallback" ? "gemini" : wavePlan.source;
     console.log(
-      `[useEnemies] spawned ${nextEnemies.length} zombies across ${wavePlan.archetypes.length} archetype(s) for ${laneType} wave ${wavePlan.waveNumber} (${wavePlan.source})`,
+      `[useEnemies] spawned ${nextEnemies.length} zombies across ${wavePlan.archetypes.length} archetype(s) for ${laneType} wave ${wavePlan.waveNumber} (${rosterKind})`,
     );
   }, [laneType, phase, player, wavePlan]);
 

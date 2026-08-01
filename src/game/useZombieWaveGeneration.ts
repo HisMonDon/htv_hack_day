@@ -60,7 +60,7 @@ export function useZombieWaveGeneration(
       .catch((error) => {
         const fallbackPlan = plansRef.current.get(requestedWave) ?? createFallbackZombieWavePlan(requestedWave);
         console.warn(
-          `[useZombieWaveGeneration] live generation failed for wave ${requestedWave}; keeping fallback roster:`,
+          `[useZombieWaveGeneration] live generation failed for wave ${requestedWave}; keeping emergency roster.`,
           error instanceof Error ? error.message : error,
         );
         return fallbackPlan;

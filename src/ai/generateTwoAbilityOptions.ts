@@ -57,7 +57,7 @@ export async function generateTwoAbilityOptions(
 ): Promise<[Ability, Ability]> {
   const cached = readCache(waveNumber, laneType);
   if (cached) {
-    console.log(`[generateTwoAbilityOptions] using cached response for ${laneType} wave ${waveNumber}`);
+    console.log(`[generateTwoAbilityOptions] Requesting ability generation for ${laneType} wave ${waveNumber}`);
     return cached;
   }
 

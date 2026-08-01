@@ -17,8 +17,10 @@ export function createFallbackZombieWavePlan(waveNumber: number): ZombieWavePlan
     source: "fallback",
     archetypes: [
       {
-        id: `fallback-shambler-${safeWave}`,
-        name: "Fallback Shambler",
+        // Keep the implementation source private: enemy IDs are included in
+        // combat debug output, so they should use the player-facing name.
+        id: `emergency-shambler-${safeWave}`,
+        name: "Emergency Shambler",
         description: "A basic emergency enemy used while live generation is unavailable.",
         maxHealth: Math.min(180, 35 + safeWave * 8),
         moveSpeed: Math.min(3.75, 1.45 + safeWave * 0.08),

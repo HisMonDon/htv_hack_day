@@ -9,7 +9,7 @@ import type {
 } from "../game/types";
 import { SPRITE_SIZE, validateSprite, type RawSpriteResponse } from "../game/spriteValidation";
 import { getFallbackSprite, tierForWave } from "../data/spriteLibrary";
-import { generateStructuredJSON } from "./geminiClient";
+import { generateStructuredJSONWithRevision } from "./geminiClient";
 
 const CACHE_PREFIX = "chaos-roll:zombie-wave:v2:";
 const MAX_ARCHETYPES = 3;
@@ -264,7 +264,7 @@ function sanitizeLiveWave(raw: RawZombieWave, waveNumber: number): ZombieWavePla
       sprite = validateSprite(entry.sprite ?? {});
     } catch (error) {
       console.warn(
-        `[generateZombieWave] invalid sprite for archetype ${index + 1}; using zombie fallback:`,
+        `[generateZombieWave] invalid sprite for archetype ${index + 1}; using the default zombie sprite:`,
         error instanceof Error ? error.message : error,
       );
       sprite = fallbackSprite(waveNumber);
@@ -330,14 +330,34 @@ export async function generateZombieWavePlan(
   const safeWave = Math.max(1, Math.floor(waveNumber));
   const cached = readCache(safeWave);
   if (cached) {
-    console.log(`[generateZombieWave] using cached zombie roster for wave ${safeWave}`);
+    console.log(`[generateZombieWave] Requesting zombie roster for wave ${safeWave}`);
     return cached;
   }
 
-  const raw = await generateStructuredJSON<RawZombieWave>(
+  const { value: raw, valid } = await generateStructuredJSONWithRevision<RawZombieWave>(
     buildPrompt(safeWave, previousArchetypeNames),
     buildSchema(),
+    (candidate) => {
+      if (!Array.isArray(candidate.archetypes) || candidate.archetypes.length === 0) {
+        throw new Error("response contained no zombie archetypes");
+      }
+      candidate.archetypes.forEach((entry, index) => {
+        try {
+          validateSprite(entry.sprite ?? {});
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          throw new Error(`archetype ${index + 1} ("${entry.name ?? "unnamed"}") sprite invalid: ${message}`);
+        }
+      });
+    },
   );
+
+  if (!valid) {
+    console.warn(
+      `[generateZombieWave] wave ${safeWave} still had invalid archetypes after revision attempts — falling back to library sprites where needed`,
+    );
+  }
+
   const plan = sanitizeLiveWave(raw, safeWave);
   writeCache(plan);
   return plan;

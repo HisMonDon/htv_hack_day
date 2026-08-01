@@ -1,6 +1,6 @@
 import { Type, type Schema } from "@google/genai";
 import type { Ability, AbilityCategory, LaneType } from "../game/types";
-import { generateStructuredJSON } from "./geminiClient";
+import { generateStructuredJSONWithRevision } from "./geminiClient";
 import { SPRITE_SIZE, validateSprite, type RawSpriteResponse } from "../game/spriteValidation";
 import { getFallbackSprite, tierForWave } from "../data/spriteLibrary";
 
@@ -100,21 +100,24 @@ export async function generateAbility(
   const schema = buildAbilitySchema(category);
   const prompt = buildPrompt(waveNumber, laneType, category, currentLoadout);
 
-  const raw = await generateStructuredJSON<Ability & { sprite: RawSpriteResponse }>(prompt, schema);
+  const { value: raw, valid } = await generateStructuredJSONWithRevision<
+    Ability & { sprite: RawSpriteResponse }
+  >(prompt, schema, (candidate) => {
+    validateSprite(candidate.sprite);
+  });
 
   if (raw.category !== category) {
-
     raw.category = category;
   }
 
-
   let sprite;
-  try {
+  if (valid) {
+    // Already proven valid by the revision loop above — re-validating here
+    // would just re-run the same checks for no reason.
     sprite = validateSprite(raw.sprite);
-  } catch (err) {
+  } else {
     console.warn(
-      `[generateAbility] sprite validation failed for "${raw.name}" (${category}) — substituting library sprite:`,
-      err instanceof Error ? err.message : err,
+      `[generateAbility] sprite still invalid for "${raw.name}" (${category}) after revision attempts — substituting library sprite`,
     );
     sprite = getFallbackSprite(category, tierForWave(waveNumber));
     if (!sprite) {
