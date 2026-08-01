@@ -201,12 +201,11 @@ export function LaneView({
     currentZombieWave: zombieWavePlan,
     isAlive,
     survivalTimeSeconds: liveSurvivalSeconds,
-    // botController.ts's decideBotMovement/decideBotAbilityUse assume canvas
-    // pixel space (BOT_MOVE_SPEED=90) — CANVAS_SCALE converts player.x/y
-    // (world units, see game/arena.ts) into that space. This particular
-    // laneState is only the HUD's per-render snapshot; the live per-frame
-    // call into decideBotMovement happens inside usePlayerCombat.ts's own
-    // tick loop, using the same CANVAS_SCALE conversion on its own refs.
+    // botController.ts (Darshan's, not mine to touch) assumes canvas pixel
+    // space (BOT_MOVE_SPEED=90, clampPosition to 480x360) — CANVAS_SCALE
+    // converts player.x/y (world units, see game/arena.ts) into that space
+    // so decideBotMovement/decideBotAbilityUse get correctly-scaled input
+    // once wired in.
     actorPosition: { x: player.x * CANVAS_SCALE, y: player.y * CANVAS_SCALE },
     activeZombies: enemies.map((enemy) => ({
       id: enemy.id,

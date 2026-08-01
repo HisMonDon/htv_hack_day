@@ -8,6 +8,8 @@ import type {
   ZombieWavePlan,
 } from "./types";
 import {
+  ARENA_HEIGHT,
+  ARENA_WIDTH,
   CANVAS_SCALE,
   PLAYER_MOVE_SPEED,
   PLAYER_RADIUS,
@@ -19,9 +21,12 @@ import { createPlayerEntity } from "./playerEntity";
 import { useCombatEffects } from "./useCombatEffects";
 import { useEnemies } from "./useEnemies";
 import { usePlayerMovement } from "./usePlayerMovement";
-import { BOT_MOVE_SPEED, decideBotMovement } from "./botController";
 
 const ABILITY_KEYS: Record<string, 0 | 1> = { j: 0, k: 1 };
+const BOT_MOVE_SPEED_PX = 80;
+const BOT_RETREAT_DISTANCE_PX = 80;
+const BOT_APPROACH_DISTANCE_PX = 180;
+const BOT_EDGE_BIAS_PX = 40;
 const DEMO_MIN_COOLDOWN_SECONDS = 0.6;
 const DEMO_MAX_COOLDOWN_SECONDS = 1.8;
 
@@ -102,6 +107,14 @@ function zombieVisual(enemy: Enemy): { color: string; radius: number } {
     color: ZOMBIE_COLORS[hash % ZOMBIE_COLORS.length],
     radius: 8 + (hash % 3) * 3 + healthTier * 2,
   };
+}
+
+type BotMoveMode = "approach" | "orbit" | "retreat";
+
+interface BotSteering {
+  mode: BotMoveMode;
+  direction: { x: number; y: number };
+  orbitSign: 1 | -1;
 }
 
 function drawEnemyAbilityEffect(
@@ -314,6 +327,12 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
 
   const movementActionRef = useRef<MovementAction | null>(null);
   const hasteRef = useRef<{ multiplier: number; until: number }>({ multiplier: 1, until: 0 });
+  const botTargetIdRef = useRef<string | null>(null);
+  const botSteeringRef = useRef<BotSteering>({
+    mode: "approach",
+    direction: { x: 0, y: 1 },
+    orbitSign: 1,
+  });
 
   // Called at both activation sites (human keydown, bot auto-fire) right
   // after an ability actually fires — resolves its movementBehavior/status
@@ -498,36 +517,68 @@ export function usePlayerCombat(opts: UsePlayerCombatOptions): UsePlayerCombatRe
             player.facingDirection = { x: move.x, y: move.y };
           }
         } else {
-          // Bot lane's movement is decided entirely by botController.ts's
-          // decideBotMovement — the same "no ML, no pathfinding" heuristic
-          // (move toward the nearest zombie cluster, retreat under 30% hp)
-          // used for its ability-pick decisions, kept in canvas-pixel space
-          // (CANVAS_SCALE) to match that module's existing coordinate system.
-          const movement = decideBotMovement({
-            activeZombies: enemiesRef.current
-              .filter((enemy) => enemy.alive)
-              .map((enemy) => ({
-                id: enemy.id,
-                position: { x: enemy.x * CANVAS_SCALE, y: enemy.y * CANVAS_SCALE },
-                health: enemy.hp,
-              })),
-            actorPosition: { x: player.x * CANVAS_SCALE, y: player.y * CANVAS_SCALE },
-            health: player.hp,
-            maxHealth: player.maxHp,
-            equippedAbilities: equippedRef.current,
-            abilityCooldownRemainingSeconds: cooldownsRef.current,
-          });
-
-          if (movement.dx !== 0 || movement.dy !== 0) {
-            const step = (BOT_MOVE_SPEED / CANVAS_SCALE) * hasteMultiplier * deltaSeconds;
-            const next = clampToArena(
-              player.x + movement.dx * step,
-              player.y + movement.dy * step,
-            );
-            player.x = next.x;
-            player.y = next.y;
-            player.facingDirection = movement;
+          const livingEnemies = enemiesRef.current.filter((enemy) => enemy.alive);
+          let nearestEnemy = livingEnemies.find((enemy) => enemy.id === botTargetIdRef.current) ?? null;
+          if (!nearestEnemy) {
+            nearestEnemy = livingEnemies.reduce<Enemy | null>((nearest, enemy) => {
+              if (!nearest) return enemy;
+              const enemyDistance = Math.hypot(enemy.x - player.x, enemy.y - player.y);
+              const nearestDistance = Math.hypot(nearest.x - player.x, nearest.y - player.y);
+              return enemyDistance < nearestDistance ? enemy : nearest;
+            }, null);
+            botTargetIdRef.current = nearestEnemy?.id ?? null;
           }
+
+          if (nearestEnemy) {
+            const dx = nearestEnemy.x - player.x;
+            const dy = nearestEnemy.y - player.y;
+            const distance = Math.hypot(dx, dy);
+            if (distance > 0) {
+              const distancePx = distance * CANVAS_SCALE;
+              const steering = botSteeringRef.current;
+              if (steering.mode === "retreat") {
+                if (distancePx > BOT_RETREAT_DISTANCE_PX + 18) steering.mode = "orbit";
+              } else if (steering.mode === "approach") {
+                if (distancePx < BOT_APPROACH_DISTANCE_PX - 18) steering.mode = "orbit";
+              } else if (distancePx < BOT_RETREAT_DISTANCE_PX - 12) {
+                steering.mode = "retreat";
+              } else if (distancePx > BOT_APPROACH_DISTANCE_PX + 12) {
+                steering.mode = "approach";
+              }
+              const baseDirection =
+                steering.mode === "retreat"
+                  ? { x: -dx / distance, y: -dy / distance }
+                  : steering.mode === "approach"
+                    ? { x: dx / distance, y: dy / distance }
+                    : { x: (-dy / distance) * steering.orbitSign, y: (dx / distance) * steering.orbitSign };
+              let moveX = baseDirection.x;
+              let moveY = baseDirection.y;
+              const playerXPx = player.x * CANVAS_SCALE;
+              const playerYPx = player.y * CANVAS_SCALE;
+              if (playerXPx < BOT_EDGE_BIAS_PX) moveX += 0.75;
+              if (playerXPx > ARENA_WIDTH * CANVAS_SCALE - BOT_EDGE_BIAS_PX) moveX -= 0.75;
+              if (playerYPx < BOT_EDGE_BIAS_PX) moveY += 0.75;
+              if (playerYPx > ARENA_HEIGHT * CANVAS_SCALE - BOT_EDGE_BIAS_PX) moveY -= 0.75;
+              const moveLength = Math.hypot(moveX, moveY) || 1;
+              const desiredDirection = { x: moveX / moveLength, y: moveY / moveLength };
+              const turnSmoothing = 0.18;
+              const smoothX = steering.direction.x * (1 - turnSmoothing) + desiredDirection.x * turnSmoothing;
+              const smoothY = steering.direction.y * (1 - turnSmoothing) + desiredDirection.y * turnSmoothing;
+              const smoothLength = Math.hypot(smoothX, smoothY) || 1;
+              const direction = { x: smoothX / smoothLength, y: smoothY / smoothLength };
+              steering.direction = direction;
+              const speedScale = steering.mode === "retreat" ? 1 : 0.65;
+              const step = (BOT_MOVE_SPEED_PX / CANVAS_SCALE) * speedScale * hasteMultiplier * deltaSeconds;
+              const next = clampToArena(
+                player.x + direction.x * step,
+                player.y + direction.y * step,
+              );
+              player.x = next.x;
+              player.y = next.y;
+              player.facingDirection = direction;
+            }
+          }
+
         }
 
         for (let index = 0; index < cooldownsRef.current.length; index += 1) {

@@ -7,10 +7,9 @@ export interface MovementVector {
 
 // Task 4 — WASD input tracking for the human lane's player entity. Scoped
 // to human input only; the bot lane's entity position is driven by
-// botController.ts's decideBotMovement instead (see usePlayerCombat.ts's
-// tick loop). Pure input tracking — doesn't know about arena bounds, phase,
-// or speed; the caller (usePlayerCombat) decides when/how to apply the
-// vector each frame.
+// botController.ts (not this hook) once that's wired in. Pure input
+// tracking — doesn't know about arena bounds, phase, or speed; the caller
+// (usePlayerCombat) decides when/how to apply the vector each frame.
 export function usePlayerMovement() {
   const pressedKeysRef = useRef<Set<string>>(new Set());
 
