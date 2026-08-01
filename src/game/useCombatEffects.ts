@@ -23,10 +23,8 @@ import { CANVAS_SCALE } from "./arena";
 // bumping a collision to its ALT_FLAVOR rotation partner.
 //
 // Isolated here: usePlayerCombat.ts calls fireEffect() at its two existing
-// activation sites, trailColorFor()/spawnTrailPoint() once per frame while a
-// dash/jump/teleport MovementAction is in flight, and drawEffects()/
-// getShakeOffset() in its render loop. No timer/phase state or
-// botController.ts involved.
+// activation sites and drawEffects()/getShakeOffset() in its render loop.
+// No timer/phase state or botController.ts involved.
 
 const MAX_AOE_SCALE = 2;
 
@@ -258,22 +256,6 @@ interface Bolt {
   lifeMs: number;
 }
 
-// One sample of a mover's position, dropped every frame while a dash/jump/
-// teleport MovementAction is in flight (see usePlayerCombat.ts's tick loop).
-// Rendered as a fading trail of shrinking dots behind the mover — distinct
-// from DASH's fire-and-forget particle burst, which plays once at activation
-// and doesn't track the mover's actual path.
-interface TrailPoint {
-  x: number; // world units
-  y: number;
-  color: string;
-  born: number;
-  lifeMs: number;
-}
-
-const TRAIL_POINT_LIFE_MS = 260;
-const TRAIL_MAX_RADIUS_PX = 9;
-
 interface ScreenFlash {
   color: string;
   born: number;
@@ -314,15 +296,6 @@ export interface UseCombatEffectsResult {
   // the current live enemy list, used to pick a cosmetic impact point and,
   // for stun/freeze abilities, to actually pause enemies — never touches hp.
   fireEffect: (ability: Ability, source: Position, enemies: Enemy[], facing?: Position) => void;
-  // Color a movement trail should use for this ability, derived from the
-  // same flavor/variant system fireEffect uses — kept separate so callers
-  // driving a multi-frame dash/jump (usePlayerCombat.ts) can look it up once
-  // and reuse it across every spawnTrailPoint() call for that movement.
-  trailColorFor: (ability: Ability) => string;
-  // Drops one fading trail sample at `position`, meant to be called once per
-  // frame while a MovementAction (dash/jump/teleport) is in flight — the
-  // caller supplies its own `now` so trail age lines up with its rAF clock.
-  spawnTrailPoint: (position: Position, color: string, now: number) => void;
   drawEffects: (ctx: CanvasRenderingContext2D, now: number) => void;
   // Additive camera shake, applied by the caller's render loop around the
   // whole scene (not just the effects layer) via ctx.translate.
@@ -459,23 +432,6 @@ function drawParticles(ctx: CanvasRenderingContext2D, particles: Particle[], now
       ctx.arc(x, y, size, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.restore();
-  }
-}
-
-function drawTrail(ctx: CanvasRenderingContext2D, points: TrailPoint[], now: number): void {
-  for (const point of points) {
-    const age = now - point.born;
-    if (age > point.lifeMs) continue;
-    const t = age / point.lifeMs;
-    const centerPx = toPx(point);
-
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, 1 - t) * 0.65;
-    ctx.fillStyle = point.color;
-    ctx.beginPath();
-    ctx.arc(centerPx.x, centerPx.y, Math.max(1, TRAIL_MAX_RADIUS_PX * (1 - t * 0.7)), 0, Math.PI * 2);
-    ctx.fill();
     ctx.restore();
   }
 }
@@ -690,7 +646,6 @@ export function useCombatEffects(equippedAbilities: [Ability, Ability]): UseComb
   const boltsRef = useRef<Bolt[]>([]);
   const flashesRef = useRef<ScreenFlash[]>([]);
   const shakeRef = useRef<Shake | null>(null);
-  const trailRef = useRef<TrailPoint[]>([]);
 
   // Read fresh each fireEffect() call without forcing fireEffect itself to
   // be recreated on every loadout change (it stays a stable useCallback).
@@ -1146,24 +1101,7 @@ export function useCombatEffects(equippedAbilities: [Ability, Ability]): UseComb
     [flavorFor],
   );
 
-  const trailColorFor = useCallback(
-    (ability: Ability): string => {
-      const flavor = flavorFor(ability);
-      const variant = abilityVariant(ability);
-      return flavorColors(flavor, ability.category, variant.hueOffset, 1)[0];
-    },
-    [flavorFor],
-  );
-
-  const spawnTrailPoint = useCallback((position: Position, color: string, now: number) => {
-    trailRef.current.push({ x: position.x, y: position.y, color, born: now, lifeMs: TRAIL_POINT_LIFE_MS });
-  }, []);
-
   const drawEffects = useCallback((ctx: CanvasRenderingContext2D, now: number) => {
-    if (trailRef.current.length > 0) {
-      trailRef.current = trailRef.current.filter((point) => now - point.born < point.lifeMs);
-      drawTrail(ctx, trailRef.current, now);
-    }
     if (particlesRef.current.length > 0) {
       particlesRef.current = particlesRef.current.filter((p) => now - p.born < p.lifeMs);
       drawParticles(ctx, particlesRef.current, now);
@@ -1229,10 +1167,9 @@ export function useCombatEffects(equippedAbilities: [Ability, Ability]): UseComb
       effectsRef.current.length > 0 ||
       particlesRef.current.length > 0 ||
       boltsRef.current.length > 0 ||
-      flashesRef.current.length > 0 ||
-      trailRef.current.length > 0,
+      flashesRef.current.length > 0,
     [],
   );
 
-  return { fireEffect, trailColorFor, spawnTrailPoint, drawEffects, getShakeOffset, hasActiveEffects };
+  return { fireEffect, drawEffects, getShakeOffset, hasActiveEffects };
 }
